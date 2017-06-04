@@ -1,0 +1,7 @@
+
+#ifndef CONFIG_HPP
+#define CONFIG_HPP
+
+#define @PRJ_NAME_UPPER@_VERSION @PRJ_VERSION@
+
+#endif // CONFIG_HPP
