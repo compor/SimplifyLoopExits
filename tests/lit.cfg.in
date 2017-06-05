@@ -17,17 +17,21 @@ config.suffixes = ['.ll', '.c', '.cpp', '.test', '.txt', '.s']
 # excludes: A list of directories to exclude from the testsuite. The 'Inputs'
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
-config.excludes = ['data', 'CMakeCache.txt', 'CMakeFiles', 'CMakeLists.txt']
+config.excludes = ['data', 'lib', 'CMakeCache.txt', 'CMakeFiles', 
+                   'CMakeLists.txt']
 
 config.substitutions.append(('%bindir', "@CMAKE_BINARY_DIR@"))
 config.substitutions.append(('%inputdatadir', "%p/data/input"))
 config.substitutions.append(('%outputdatadir', "%p/data/output"))
 config.substitutions.append(('%testeelib',
                              "@TESTEE_PREFIX@@TESTEE_LIB@@TESTEE_SUFFIX@"))
+config.substitutions.append(('%utilitylib', "@TESTEE_PREFIX@util.a"))
+config.substitutions.append(('%utilitydir',
+                             "@CMAKE_BINARY_DIR@/tests/lib/util/"))
 
 # environment: Set PATH as required
-config.environment['PATH'] = os.pathsep.join(["@LLVM_TOOLS_BINARY_DIR@", 
-    config.environment['PATH']])
+config.environment['PATH'] = os.pathsep.join(["@LLVM_TOOLS_BINARY_DIR@",
+                                              config.environment['PATH']])
 config.environment['PRJ_NAME'] = "@PRJ_NAME@"
 config.environment['LLVM_ROOT'] = "@LLVM_INSTALL_PREFIX@"
 
