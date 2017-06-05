@@ -52,6 +52,7 @@
 #include <string>
 // using std::string
 
+#include "SimplifyLoopExits.hpp"
 
 namespace icsa {
 namespace {
@@ -67,11 +68,11 @@ struct test_result_visitor : public boost::static_visitor<unsigned int> {
   }
 };
 
-class TestClassifyLoopExits : public testing::Test {
+class TestSimplifyLoopExits : public testing::Test {
 public:
   enum struct AssemblyHolderType : int { FILE_TYPE, STRING_TYPE };
 
-  TestClassifyLoopExits()
+  TestSimplifyLoopExits()
       : m_Module{nullptr}, m_TestDataDir{"./unittests/data/"} {}
 
   void ParseAssembly(
@@ -123,7 +124,6 @@ public:
       }
 
       void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {
-        AU.setPreservesAll();
         AU.addRequiredTransitive<llvm::LoopInfoWrapperPass>();
 
         return;
@@ -139,12 +139,6 @@ public:
         assert(CurLoop && "Loop ptr is invalid");
 
         test_result_map::const_iterator found;
-
-        std::set<std::string> iocalls;
-        std::set<std::string> nonlocalexitcalls;
-
-        iocalls.insert("foo");
-        nonlocalexitcalls.insert("bar");
 
         // subcase
         found = lookup("containing function");
@@ -189,7 +183,7 @@ protected:
   const char *m_TestDataDir;
 };
 
-TEST_F(TestClassifyLoopExits, RegularLoopExits) {
+TEST_F(TestSimplifyLoopExits, RegularLoopExits) {
   ParseAssembly("test01.ll");
   test_result_map trm;
 
@@ -197,7 +191,7 @@ TEST_F(TestClassifyLoopExits, RegularLoopExits) {
   ExpectTestPass(trm);
 }
 
-TEST_F(TestClassifyLoopExits, DefiniteInfiniteLoopExits) {
+TEST_F(TestSimplifyLoopExits, DefiniteInfiniteLoopExits) {
   ParseAssembly("test02.ll");
   test_result_map trm;
 
@@ -205,7 +199,7 @@ TEST_F(TestClassifyLoopExits, DefiniteInfiniteLoopExits) {
   ExpectTestPass(trm);
 }
 
-TEST_F(TestClassifyLoopExits, DeadLoopExits) {
+TEST_F(TestSimplifyLoopExits, DeadLoopExits) {
   ParseAssembly("test03.ll");
   test_result_map trm;
 
@@ -214,7 +208,7 @@ TEST_F(TestClassifyLoopExits, DeadLoopExits) {
   ExpectTestPass(trm);
 }
 
-TEST_F(TestClassifyLoopExits, BreakConditionLoopExits) {
+TEST_F(TestSimplifyLoopExits, BreakConditionLoopExits) {
   ParseAssembly("test04.ll");
   test_result_map trm;
 
@@ -222,57 +216,8 @@ TEST_F(TestClassifyLoopExits, BreakConditionLoopExits) {
   ExpectTestPass(trm);
 }
 
-TEST_F(TestClassifyLoopExits, ContinueConditionLoopExits) {
+TEST_F(TestSimplifyLoopExits, ContinueConditionLoopExits) {
   ParseAssembly("test05.ll");
-  test_result_map trm;
-
-  trm.insert({"total number of exits", 1});
-  ExpectTestPass(trm);
-}
-
-TEST_F(TestClassifyLoopExits, ReturnStmtLoopExits) {
-  ParseAssembly("test06.ll");
-  test_result_map trm;
-
-  trm.insert({"total number of exits", 2});
-  ExpectTestPass(trm);
-}
-
-TEST_F(TestClassifyLoopExits, ExitCallLoopExits) {
-  ParseAssembly("test07.ll");
-  test_result_map trm;
-
-  trm.insert({"total number of exits", 2});
-  ExpectTestPass(trm);
-}
-
-TEST_F(TestClassifyLoopExits, FuncCallLoopExits) {
-  ParseAssembly("test08.ll");
-  test_result_map trm;
-
-  trm.insert({"total number of exits", 1});
-  ExpectTestPass(trm);
-}
-
-TEST_F(TestClassifyLoopExits, ReturnInnerLoopExits) {
-  ParseAssembly("test09.ll");
-  test_result_map trm;
-
-  trm.insert({"total number of exits", 2});
-  ExpectTestPass(trm);
-}
-
-TEST_F(TestClassifyLoopExits, SpecialCallsLoop) {
-  ParseAssembly("test10.ll");
-  test_result_map trm;
-
-  trm.insert({"total number of exits", 1});
-  trm.insert({"number of non local exit calls", 1});
-  ExpectTestPass(trm);
-}
-
-TEST_F(TestClassifyLoopExits, RegularInnerLoops) {
-  ParseAssembly("test11.ll");
   test_result_map trm;
 
   trm.insert({"total number of exits", 1});
