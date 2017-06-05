@@ -49,23 +49,35 @@
 #include "boost/variant.hpp"
 // using boost::variant
 
+#include "boost/variant/get.hpp"
+// using boost::get
+
 #include <string>
 // using std::string
 
+#include <exception>
+// using std::exception
+
+#include <cassert>
+// using assert
+
 #include "SimplifyLoopExits.hpp"
+
+#ifdef BOOST_NO_EXCEPTIONS
+namespace boost {
+void throw_exception(std::exception const &e) { assert(true); }
+}
+#endif // BOOST_NO_EXCEPTIONS
 
 namespace icsa {
 namespace {
 
-using test_result_t = boost::variant<bool, int, std::string>;
+using test_result_t = boost::variant<bool, int, const char *, std::string>;
 using test_result_map = std::map<std::string, test_result_t>;
 
 struct test_result_visitor : public boost::static_visitor<unsigned int> {
   unsigned int operator()(bool b) const { return b ? 1 : 0; }
   unsigned int operator()(int i) const { return i; }
-  unsigned int operator()(const std::string &s) const {
-    return s == "test" ? 1 : 0;
-  }
 };
 
 class TestSimplifyLoopExits : public testing::Test {
@@ -135,17 +147,19 @@ public:
 
         auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo();
 
-        auto &CurLoop = *LI.begin();
+        auto *CurLoop = *LI.begin();
         assert(CurLoop && "Loop ptr is invalid");
+
+        SimplifyLoopExits sle;
+        const auto hdrExit = sle.getHeaderExit(*CurLoop);
 
         test_result_map::const_iterator found;
 
         // subcase
-        found = lookup("containing function");
+        found = lookup("header exit landing");
         if (found != std::end(m_trm)) {
-          const auto &rv = 0;
-          const auto &ev =
-              boost::apply_visitor(test_result_visitor(), found->second);
+          const auto &rv = hdrExit.first->getName();
+          const auto &ev = boost::get<const char *>(found->second);
           EXPECT_EQ(ev, rv) << found->first;
         }
 
@@ -187,7 +201,7 @@ TEST_F(TestSimplifyLoopExits, RegularLoopExits) {
   ParseAssembly("test01.ll");
   test_result_map trm;
 
-  trm.insert({"total number of exits", 1});
+  trm.insert({"header exit landing", "loop_exit_original"});
   ExpectTestPass(trm);
 }
 

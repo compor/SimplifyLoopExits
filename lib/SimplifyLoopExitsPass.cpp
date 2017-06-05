@@ -64,7 +64,7 @@ namespace icsa {
 
 char SimplifyLoopExitsPass::ID = 0;
 static llvm::RegisterPass<SimplifyLoopExitsPass>
-    tmp1("simplifyloopexits", PRJ_CMDLINE_DESC("simplify loop exits"), false,
+    tmp1("simplify-loop-exits", PRJ_CMDLINE_DESC("simplify loop exits"), false,
          false);
 
 // plugin registration for clang
