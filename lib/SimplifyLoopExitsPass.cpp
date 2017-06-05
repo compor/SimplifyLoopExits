@@ -88,10 +88,23 @@ static llvm::RegisterStandardPasses
 
 //
 
-bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) { return false; }
+bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
+  for (auto &CurFunc : M) {
+    if (CurFunc.isDeclaration())
+      continue;
+
+    auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>(CurFunc).getLoopInfo();
+    auto *CurLoop = *(LI.begin());
+
+    //SimplifyLoopExits sle;
+    //sle.attachExitBlock(*CurLoop);
+  }
+
+  return false;
+}
 
 void SimplifyLoopExitsPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
-  AU.setPreservesAll();
+  AU.addRequiredTransitive<llvm::LoopInfoWrapperPass>();
 
   return;
 }
