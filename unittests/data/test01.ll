@@ -1,20 +1,24 @@
+
 define void @test() {
-  %i = alloca i32, align 4
-  %a = alloca i32, align 4
-  store i32 100, i32* %i, align 4
-  store i32 0, i32* %a, align 4
-  br label %1
+entry:
+  br label %while.cond
 
-  %2 = load i32, i32* %i, align 4
-  %3 = add nsw i32 %2, -1
-  store i32 %3, i32* %i, align 4
-  %4 = icmp ne i32 %3, 0
-  br i1 %4, label %5, label %8
+while.cond:                                       ; preds = %while.body, %entry
+  %a.0 = phi i32 [ 0, %entry ], [ %inc, %while.body ]
+  %i.0 = phi i32 [ 10, %entry ], [ %dec, %while.body ]
+  %dec = add nsw i32 %i.0, -1
+  %tobool = icmp ne i32 %dec, 0
+  br i1 %tobool, label %while.body, label %loop_exit_original
 
-  %6 = load i32, i32* %a, align 4
-  %7 = add nsw i32 %6, 1
-  store i32 %7, i32* %a, align 4
-  br label %1
+while.body:                                       ; preds = %while.cond
+  %inc = add nsw i32 %a.0, 1
+  br label %while.cond
 
+loop_exit_original:                               ; preds = %while.cond
+  call void @sle_print(i32 %a.0)
+  call void @sle_print(i32 %dec)
   ret void
 }
+
+declare void @sle_print(i32)
+
