@@ -13,6 +13,15 @@
 #include "llvm/IR/IRBuilder.h"
 // using llvm::IRBuilder
 
+#include "llvm/IR/Type.h"
+// using llvm::Type
+
+#include "llvm/IR/Constants.h"
+// using llvm::ConstantInt
+
+#include "llvm/IR/Instructions.h"
+// using llvm::StoreInst
+
 #include "llvm/Analysis/LoopInfo.h"
 // using llvm::Loop
 
@@ -39,6 +48,36 @@ SimplifyLoopExits::getHeaderExit(const llvm::Loop &CurLoop) const {
   }
 
   return std::make_pair(hdrSuccessor, hdrSuccessorIdx);
+}
+
+llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
+  auto *loopPreHdr = CurLoop.getLoopPreheader();
+  // TODO a case for caching these as we process same loop?
+  auto *curFunc = loopPreHdr->getParent();
+  auto *curModule = curFunc->getParent();
+  auto &curContext = curFunc->getContext();
+
+  auto *flagType = llvm::Type::getInt8Ty(curContext);
+  auto *flagAlloca = new llvm::AllocaInst(flagType, nullptr, "unifiedExitFlag",
+                                          loopPreHdr->getTerminator());
+
+  return flagAlloca;
+}
+
+llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Instruction *Inst, bool Val,
+                                            llvm::BasicBlock *Entry) {
+  if (!Entry)
+    Entry = Inst->getParent();
+
+  auto &curContext = Inst->getContext();
+
+  auto *flagType = llvm::Type::getInt8Ty(curContext);
+  auto *constantVal = llvm::ConstantInt::get(flagType, Val);
+
+  auto *flagStore =
+      new llvm::StoreInst(constantVal, Inst, Entry->getTerminator());
+
+  return flagStore;
 }
 
 void SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
