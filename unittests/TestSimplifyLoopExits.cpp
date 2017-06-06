@@ -197,44 +197,19 @@ protected:
   const char *m_TestDataDir;
 };
 
-TEST_F(TestSimplifyLoopExits, RegularLoopExits) {
-  ParseAssembly("test01.ll");
+TEST_F(TestSimplifyLoopExits, RegularLoop) {
+  ParseAssembly("test101.ll");
   test_result_map trm;
 
   trm.insert({"header exit landing", "loop_exit_original"});
   ExpectTestPass(trm);
 }
 
-TEST_F(TestSimplifyLoopExits, DefiniteInfiniteLoopExits) {
-  ParseAssembly("test02.ll");
+TEST_F(TestSimplifyLoopExits, RegularLoopWithPhiAtHeaderExit) {
+  ParseAssembly("test102.ll");
   test_result_map trm;
 
-  trm.insert({"total number of exits", 0});
-  ExpectTestPass(trm);
-}
-
-TEST_F(TestSimplifyLoopExits, DeadLoopExits) {
-  ParseAssembly("test03.ll");
-  test_result_map trm;
-
-  trm.insert({"total number of exits", 1});
-  trm.insert({"number of inner loop toplevel exits", 0});
-  ExpectTestPass(trm);
-}
-
-TEST_F(TestSimplifyLoopExits, BreakConditionLoopExits) {
-  ParseAssembly("test04.ll");
-  test_result_map trm;
-
-  trm.insert({"total number of exits", 2});
-  ExpectTestPass(trm);
-}
-
-TEST_F(TestSimplifyLoopExits, ContinueConditionLoopExits) {
-  ParseAssembly("test05.ll");
-  test_result_map trm;
-
-  trm.insert({"total number of exits", 1});
+  trm.insert({"header exit landing", "loop_exit_original"});
   ExpectTestPass(trm);
 }
 
