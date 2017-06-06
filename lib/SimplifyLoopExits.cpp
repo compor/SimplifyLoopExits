@@ -1,3 +1,6 @@
+//
+//
+//
 
 #include "SimplifyLoopExits.hpp"
 
@@ -72,7 +75,6 @@ void SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
   llvm::IRBuilder<> builder(unifiedExit);
   builder.CreateBr(hdrExit.first);
 
-  // TODO update header's exit block's phi nodes to use the unified node
   auto hdrTerm = CurLoop.getHeader()->getTerminator();
   hdrTerm->setSuccessor(hdrExit.second, unifiedExit);
 
