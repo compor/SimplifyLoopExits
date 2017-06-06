@@ -7,6 +7,9 @@
 #include "llvm/IR/BasicBlock.h"
 // using llvm::BasicBlock
 
+#include "llvm/IR/IRBuilder.h"
+// using llvm::IRBuilder
+
 #include "llvm/Analysis/LoopInfo.h"
 // using llvm::Loop
 
@@ -65,6 +68,9 @@ void SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
   // create unified exit and place as current header exit's predecessor
   auto *unifiedExit = llvm::BasicBlock::Create(curContext, "loop_unified_exit",
                                                curFunc, hdrExit.first);
+
+  llvm::IRBuilder<> builder(unifiedExit);
+  builder.CreateBr(hdrExit.first);
 
   // TODO update header's exit block's phi nodes to use the unified node
   auto hdrTerm = CurLoop.getHeader()->getTerminator();

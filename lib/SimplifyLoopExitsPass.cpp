@@ -96,8 +96,8 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
     auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>(CurFunc).getLoopInfo();
     auto *CurLoop = *(LI.begin());
 
-    //SimplifyLoopExits sle;
-    //sle.attachExitBlock(*CurLoop);
+    SimplifyLoopExits sle;
+    sle.attachExitBlock(*CurLoop);
   }
 
   return false;
