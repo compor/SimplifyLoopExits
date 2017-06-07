@@ -25,6 +25,7 @@ public:
   SimplifyLoopExits() = default;
 
   indexed_basicblock_t getHeaderExit(const llvm::Loop &CurLoop) const;
+  bool getExitConditionValue(llvm::Loop &CurLoop) const;
   llvm::Value *addExitFlag(llvm::Loop &CurLoop);
   llvm::Value *setExitFlag(llvm::Instruction *Inst, bool Val = true,
                            llvm::BasicBlock *Entry = nullptr);

@@ -75,11 +75,6 @@ namespace {
 using test_result_t = boost::variant<bool, int, const char *, std::string>;
 using test_result_map = std::map<std::string, test_result_t>;
 
-struct test_result_visitor : public boost::static_visitor<unsigned int> {
-  unsigned int operator()(bool b) const { return b ? 1 : 0; }
-  unsigned int operator()(int i) const { return i; }
-};
-
 class TestSimplifyLoopExits : public testing::Test {
 public:
   enum struct AssemblyHolderType : int { FILE_TYPE, STRING_TYPE };
@@ -152,6 +147,7 @@ public:
 
         SimplifyLoopExits sle;
         const auto hdrExit = sle.getHeaderExit(*CurLoop);
+        const bool doesHdrExitOnTrue = sle.getExitConditionValue(*CurLoop);
 
         test_result_map::const_iterator found;
 
@@ -163,6 +159,13 @@ public:
           EXPECT_EQ(ev, rv) << found->first;
         }
 
+        // subcase
+        found = lookup("header exit on true condition");
+        if (found != std::end(m_trm)) {
+          const auto &rv = doesHdrExitOnTrue;
+          const auto &ev = boost::get<bool>(found->second);
+          EXPECT_EQ(ev, rv) << found->first;
+        }
         return false;
       }
 
@@ -202,6 +205,7 @@ TEST_F(TestSimplifyLoopExits, RegularLoop) {
   test_result_map trm;
 
   trm.insert({"header exit landing", "loop_exit_original"});
+  trm.insert({"header exit on true condition", false});
   ExpectTestPass(trm);
 }
 
@@ -210,6 +214,7 @@ TEST_F(TestSimplifyLoopExits, RegularLoopWithPhiAtHeaderExit) {
   test_result_map trm;
 
   trm.insert({"header exit landing", "loop_exit_original"});
+  trm.insert({"header exit on true condition", false});
   ExpectTestPass(trm);
 }
 

@@ -50,6 +50,12 @@ SimplifyLoopExits::getHeaderExit(const llvm::Loop &CurLoop) const {
   return std::make_pair(hdrSuccessor, hdrSuccessorIdx);
 }
 
+bool SimplifyLoopExits::getExitConditionValue(llvm::Loop &CurLoop) const {
+  auto hdrTerm = CurLoop.getHeader()->getTerminator();
+
+  return !CurLoop.contains(hdrTerm->getSuccessor(0));
+}
+
 llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
   auto *loopPreHdr = CurLoop.getLoopPreheader();
   // TODO a case for caching these as we process same loop?
