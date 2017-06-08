@@ -65,6 +65,31 @@ bool SimplifyLoopExits::getExitConditionValue(llvm::Loop &CurLoop) const {
   return !CurLoop.contains(hdrTerm->getSuccessor(0));
 }
 
+loop_exit_edge_vector SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
+  loop_exit_edge_vector edgeVec{};
+
+  for (const auto *bb : CurLoop.getBlocks()) {
+    if (bb == CurLoop.getHeader())
+      continue;
+
+    auto *term = bb->getTerminator();
+
+    loop_exit_target_t externalSucc;
+
+    auto numSucc = term->getNumSuccessors();
+    for (decltype(numSucc) i = 0; i < numSucc; ++i) {
+      const auto *succ = term->getSuccessor(i);
+      if (!CurLoop.contains(succ))
+        externalSucc.push_back(succ);
+    }
+
+    if (!externalSucc.empty())
+      edgeVec.push_back(std::make_pair(bb, externalSucc));
+  }
+
+  return edgeVec;
+}
+
 llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
   auto *loopPreHdr = CurLoop.getLoopPreheader();
   auto *hdrTerm = CurLoop.getHeader()->getTerminator();
@@ -128,22 +153,22 @@ SimplifyLoopExits::attachExitCondition(llvm::Loop &CurLoop,
 
 llvm::BasicBlock *SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
   // get exiting blocks
-  //llvm::SmallVector<llvm::BasicBlock *, 5> exiting;
-  //CurLoop.getExitingBlocks(exiting);
+  // llvm::SmallVector<llvm::BasicBlock *, 5> exiting;
+  // CurLoop.getExitingBlocks(exiting);
 
-  //auto NumHeaderExits = 0ul;
-  //auto NumNonHeaderExits = 0ul;
+  // auto NumHeaderExits = 0ul;
+  // auto NumNonHeaderExits = 0ul;
 
-  //auto *loopHdr = CurLoop.getHeader();
-  //for (const auto &e : exiting)
-    //if (loopHdr == e)
-      //NumHeaderExits++;
+  // auto *loopHdr = CurLoop.getHeader();
+  // for (const auto &e : exiting)
+  // if (loopHdr == e)
+  // NumHeaderExits++;
 
-  //NumNonHeaderExits = exiting.size() - NumHeaderExits;
+  // NumNonHeaderExits = exiting.size() - NumHeaderExits;
 
   //// get exit landings
-  //llvm::SmallVector<llvm::BasicBlock *, 5> uniqueExitLandings;
-  //CurLoop.getUniqueExitBlocks(uniqueExitLandings);
+  // llvm::SmallVector<llvm::BasicBlock *, 5> uniqueExitLandings;
+  // CurLoop.getUniqueExitBlocks(uniqueExitLandings);
 
   // get header exit landing
   // TODO handle headers with no exits
