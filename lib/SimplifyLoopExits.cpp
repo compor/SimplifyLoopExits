@@ -10,9 +10,6 @@
 #include "llvm/IR/BasicBlock.h"
 // using llvm::BasicBlock
 
-#include "llvm/IR/IRBuilder.h"
-// using llvm::IRBuilder
-
 #include "llvm/IR/Type.h"
 // using llvm::Type
 
@@ -20,7 +17,10 @@
 // using llvm::ConstantInt
 
 #include "llvm/IR/Instructions.h"
+// using llvm::AllocaInst
 // using llvm::StoreInst
+// using llvm::LoadInst
+// using llvm::BranchInst
 
 #include "llvm/IR/Instruction.h"
 // using llvm::BinaryOps
@@ -28,8 +28,14 @@
 #include "llvm/Analysis/LoopInfo.h"
 // using llvm::Loop
 
+#include "llvm/Support/Casting.h"
+// using llvm::dyn_cast
+
 #include <set>
 // using std::set
+
+#include <cassert>
+// using assert
 
 namespace icsa {
 
@@ -120,44 +126,43 @@ SimplifyLoopExits::attachExitCondition(llvm::Loop &CurLoop,
   return unifiedCond;
 }
 
-void SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
+llvm::BasicBlock *SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
   // get exiting blocks
-  llvm::SmallVector<llvm::BasicBlock *, 5> exiting;
-  CurLoop.getExitingBlocks(exiting);
+  //llvm::SmallVector<llvm::BasicBlock *, 5> exiting;
+  //CurLoop.getExitingBlocks(exiting);
 
-  auto NumHeaderExits = 0ul;
-  auto NumNonHeaderExits = 0ul;
+  //auto NumHeaderExits = 0ul;
+  //auto NumNonHeaderExits = 0ul;
 
-  auto *loopHdr = CurLoop.getHeader();
-  for (const auto &e : exiting)
-    if (loopHdr == e)
-      NumHeaderExits++;
+  //auto *loopHdr = CurLoop.getHeader();
+  //for (const auto &e : exiting)
+    //if (loopHdr == e)
+      //NumHeaderExits++;
 
-  NumNonHeaderExits = exiting.size() - NumHeaderExits;
+  //NumNonHeaderExits = exiting.size() - NumHeaderExits;
 
-  // get exit landings
-  llvm::SmallVector<llvm::BasicBlock *, 5> uniqueExitLandings;
-  CurLoop.getUniqueExitBlocks(uniqueExitLandings);
+  //// get exit landings
+  //llvm::SmallVector<llvm::BasicBlock *, 5> uniqueExitLandings;
+  //CurLoop.getUniqueExitBlocks(uniqueExitLandings);
 
   // get header exit landing
   // TODO handle headers with no exits
   auto hdrExit = getHeaderExit(CurLoop);
 
-  auto *curFunc = loopHdr->getParent();
-  auto *curModule = curFunc->getParent();
+  auto *curFunc = hdrExit.first->getParent();
   auto &curContext = curFunc->getContext();
 
   // create unified exit and place as current header exit's predecessor
-  auto *unifiedExit = llvm::BasicBlock::Create(curContext, "loop_unified_exit",
+  auto *unifiedExit = llvm::BasicBlock::Create(curContext, "unified_loop_exit",
                                                curFunc, hdrExit.first);
 
-  llvm::IRBuilder<> builder(unifiedExit);
-  builder.CreateBr(hdrExit.first);
+  llvm::BranchInst::Create(hdrExit.first, unifiedExit);
 
+  // set loop header exit successor to the new block
   auto hdrTerm = CurLoop.getHeader()->getTerminator();
   hdrTerm->setSuccessor(hdrExit.second, unifiedExit);
 
-  return;
+  return unifiedExit;
 }
 
 } // namespace icsa en

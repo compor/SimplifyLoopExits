@@ -10,10 +10,8 @@
 
 namespace llvm {
 class Value;
-class Instruction;
 class Loop;
 class BasicBlock;
-class Instruction;
 } // namespace llvm end
 
 using indexed_basicblock_t = std::pair<llvm::BasicBlock *, unsigned>;
@@ -31,7 +29,7 @@ public:
                            llvm::BasicBlock *Insertion);
   llvm::Value *attachExitCondition(llvm::Loop &CurLoop,
                                    llvm::Value *UnifiedExitFlag = nullptr);
-  void attachExitBlock(llvm::Loop &CurLoop);
+  llvm::BasicBlock *attachExitBlock(llvm::Loop &CurLoop);
 };
 
 } // namespace icsa end
