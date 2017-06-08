@@ -27,8 +27,10 @@ public:
   indexed_basicblock_t getHeaderExit(const llvm::Loop &CurLoop) const;
   bool getExitConditionValue(llvm::Loop &CurLoop) const;
   llvm::Value *addExitFlag(llvm::Loop &CurLoop);
-  llvm::Value *setExitFlag(llvm::Instruction *Inst, bool Val = true,
-                           llvm::BasicBlock *Entry = nullptr);
+  llvm::Value *setExitFlag(llvm::Value *Val, bool On,
+                           llvm::BasicBlock *Insertion);
+  llvm::Value *attachExitCondition(llvm::Loop &CurLoop,
+                                   llvm::Value *UnifiedExitFlag = nullptr);
   void attachExitBlock(llvm::Loop &CurLoop);
 };
 
