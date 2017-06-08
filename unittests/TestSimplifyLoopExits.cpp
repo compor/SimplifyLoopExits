@@ -209,6 +209,15 @@ TEST_F(TestSimplifyLoopExits, RegularLoop) {
   ExpectTestPass(trm);
 }
 
+TEST_F(TestSimplifyLoopExits, RegularLoopInvertedCond) {
+  ParseAssembly("test101b.ll");
+  test_result_map trm;
+
+  trm.insert({"header exit landing", "loop_exit_original"});
+  trm.insert({"header exit on true condition", true});
+  ExpectTestPass(trm);
+}
+
 TEST_F(TestSimplifyLoopExits, RegularLoopWithPhiAtHeaderExit) {
   ParseAssembly("test102.ll");
   test_result_map trm;
