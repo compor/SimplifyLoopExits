@@ -5,8 +5,11 @@
 #ifndef SIMPLIFYLOOPEXITS_HPP
 #define SIMPLIFYLOOPEXITS_HPP
 
-#include <vector>
-// using std::vector
+#include <map>
+// using std::map
+
+#include <set>
+// using std::set
 
 #include <utility>
 // using std::pair
@@ -19,10 +22,8 @@ class BasicBlock;
 
 using indexed_basicblock_t = std::pair<llvm::BasicBlock *, unsigned>;
 
-using loop_exit_target_t = std::vector<const llvm::BasicBlock *>;
-using loop_exit_edge_t =
-    std::pair<const llvm::BasicBlock *, loop_exit_target_t>;
-using loop_exit_edge_vector = std::vector<loop_exit_edge_t>;
+using loop_exit_target_t = std::set<const llvm::BasicBlock *>;
+using loop_exit_edge_t = std::map<const llvm::BasicBlock *, loop_exit_target_t>;
 
 namespace icsa {
 
@@ -32,7 +33,7 @@ public:
 
   indexed_basicblock_t getHeaderExit(const llvm::Loop &CurLoop) const;
   bool getExitConditionValue(llvm::Loop &CurLoop) const;
-  loop_exit_edge_vector getEdges(const llvm::Loop &CurLoop);
+  loop_exit_edge_t getEdges(const llvm::Loop &CurLoop);
 
   llvm::Value *addExitFlag(llvm::Loop &CurLoop);
   llvm::Value *setExitFlag(llvm::Value *Val, bool On,

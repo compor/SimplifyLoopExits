@@ -72,7 +72,8 @@ void throw_exception(std::exception const &e) { assert(true); }
 namespace icsa {
 namespace {
 
-using test_result_t = boost::variant<bool, int, const char *, std::string>;
+using test_result_t =
+    boost::variant<bool, int, const char *, std::string, loop_exit_edge_t>;
 using test_result_map = std::map<std::string, test_result_t>;
 
 class TestSimplifyLoopExits : public testing::Test {
@@ -148,6 +149,7 @@ public:
         SimplifyLoopExits sle;
         const auto hdrExit = sle.getHeaderExit(*CurLoop);
         const bool doesHdrExitOnTrue = sle.getExitConditionValue(*CurLoop);
+        const auto &loopExitEdges = sle.getEdges(*CurLoop);
 
         test_result_map::const_iterator found;
 
@@ -166,6 +168,15 @@ public:
           const auto &ev = boost::get<bool>(found->second);
           EXPECT_EQ(ev, rv) << found->first;
         }
+
+        // subcase
+        found = lookup("loop exit edge number");
+        if (found != std::end(m_trm)) {
+          const auto &rv = loopExitEdges.size();
+          const auto &ev = boost::get<int>(found->second);
+          EXPECT_EQ(ev, rv) << found->first;
+        }
+
         return false;
       }
 
@@ -206,6 +217,7 @@ TEST_F(TestSimplifyLoopExits, RegularLoop) {
 
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", false});
+  trm.insert({"loop exit edge number", 0});
   ExpectTestPass(trm);
 }
 
@@ -215,6 +227,7 @@ TEST_F(TestSimplifyLoopExits, RegularLoopInvertedCond) {
 
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", true});
+  trm.insert({"loop exit edge number", 0});
   ExpectTestPass(trm);
 }
 
@@ -224,6 +237,7 @@ TEST_F(TestSimplifyLoopExits, RegularLoopWithPhiAtHeaderExit) {
 
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", false});
+  trm.insert({"loop exit edge number", 0});
   ExpectTestPass(trm);
 }
 

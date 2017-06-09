@@ -65,8 +65,8 @@ bool SimplifyLoopExits::getExitConditionValue(llvm::Loop &CurLoop) const {
   return !CurLoop.contains(hdrTerm->getSuccessor(0));
 }
 
-loop_exit_edge_vector SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
-  loop_exit_edge_vector edgeVec{};
+loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
+  loop_exit_edge_t edges{};
 
   for (const auto *bb : CurLoop.getBlocks()) {
     if (bb == CurLoop.getHeader())
@@ -80,14 +80,14 @@ loop_exit_edge_vector SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
     for (decltype(numSucc) i = 0; i < numSucc; ++i) {
       const auto *succ = term->getSuccessor(i);
       if (!CurLoop.contains(succ))
-        externalSucc.push_back(succ);
+        externalSucc.insert(succ);
     }
 
     if (!externalSucc.empty())
-      edgeVec.push_back(std::make_pair(bb, externalSucc));
+      edges.emplace(bb, externalSucc);
   }
 
-  return edgeVec;
+  return edges;
 }
 
 llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
