@@ -156,7 +156,7 @@ public:
         // subcase
         found = lookup("header exit landing");
         if (found != std::end(m_trm)) {
-          const auto &rv = hdrExit.first->getName();
+          const auto &rv = hdrExit.first ? hdrExit.first->getName() : "";
           const auto &ev = boost::get<const char *>(found->second);
           EXPECT_EQ(ev, rv) << found->first;
         }
@@ -256,6 +256,16 @@ TEST_F(TestSimplifyLoopExits, LoopWithContinueStatement) {
   test_result_map trm;
 
   trm.insert({"header exit landing", "loop_exit_original"});
+  trm.insert({"header exit on true condition", false});
+  trm.insert({"loop exit edge number", 0});
+  ExpectTestPass(trm);
+}
+
+TEST_F(TestSimplifyLoopExits, InfiniteLoop) {
+  ParseAssembly("test105.ll");
+  test_result_map trm;
+
+  trm.insert({"header exit landing", ""});
   trm.insert({"header exit on true condition", false});
   trm.insert({"loop exit edge number", 0});
   ExpectTestPass(trm);

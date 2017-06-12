@@ -62,6 +62,9 @@ SimplifyLoopExits::getHeaderExit(const llvm::Loop &CurLoop) const {
 bool SimplifyLoopExits::getExitConditionValue(llvm::Loop &CurLoop) const {
   auto hdrTerm = CurLoop.getHeader()->getTerminator();
 
+  if(!hdrTerm->getNumSuccessors())
+    return false;
+
   return !CurLoop.contains(hdrTerm->getSuccessor(0));
 }
 
