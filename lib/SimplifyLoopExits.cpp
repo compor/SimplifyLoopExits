@@ -76,7 +76,6 @@ loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
       continue;
 
     auto *term = bb->getTerminator();
-
     loop_exit_target_t externalSucc;
 
     auto numSucc = term->getNumSuccessors();

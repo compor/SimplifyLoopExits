@@ -55,6 +55,9 @@
 #include <string>
 // using std::string
 
+#include <algorithm>
+// using std::for_each
+
 #include <exception>
 // using std::exception
 
@@ -150,6 +153,14 @@ public:
         const auto hdrExit = sle.getHeaderExit(*CurLoop);
         const bool doesHdrExitOnTrue = sle.getExitConditionValue(*CurLoop);
         const auto &loopExitEdges = sle.getEdges(*CurLoop);
+        loop_exit_target_t loopExitTargets{};
+
+        std::for_each(std::begin(loopExitEdges), std::end(loopExitEdges),
+                      [&loopExitTargets](const auto &e) {
+                        for (const auto &t : e.second) {
+                          loopExitTargets.insert(t);
+                        }
+                      });
 
         test_result_map::const_iterator found;
 
@@ -177,13 +188,21 @@ public:
           EXPECT_EQ(ev, rv) << found->first;
         }
 
+        // subcase
+        found = lookup("loop exit target number");
+        if (found != std::end(m_trm)) {
+          const auto &rv = loopExitTargets.size();
+          const auto &ev = boost::get<int>(found->second);
+          EXPECT_EQ(ev, rv) << found->first;
+        }
+
         return false;
       }
 
       test_result_map::const_iterator lookup(const std::string &subcase,
                                              bool fatalIfMissing = false) {
         auto found = m_trm.find(subcase);
-        if (fatalIfMissing && m_trm.end() == found) {
+        if (fatalIfMissing && std::end(m_trm) == found) {
           llvm::errs() << "subcase: " << subcase << " test data not found\n";
           std::abort();
         }
@@ -218,6 +237,7 @@ TEST_F(TestSimplifyLoopExits, RegularLoop) {
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", false});
   trm.insert({"loop exit edge number", 0});
+  trm.insert({"loop exit target number", 0});
   ExpectTestPass(trm);
 }
 
@@ -228,6 +248,7 @@ TEST_F(TestSimplifyLoopExits, RegularLoopInvertedCond) {
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", true});
   trm.insert({"loop exit edge number", 0});
+  trm.insert({"loop exit target number", 0});
   ExpectTestPass(trm);
 }
 
@@ -238,6 +259,7 @@ TEST_F(TestSimplifyLoopExits, RegularLoopWithPhiAtHeaderExit) {
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", false});
   trm.insert({"loop exit edge number", 0});
+  trm.insert({"loop exit target number", 0});
   ExpectTestPass(trm);
 }
 
@@ -248,6 +270,7 @@ TEST_F(TestSimplifyLoopExits, LoopWithBreakExit) {
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", false});
   trm.insert({"loop exit edge number", 1});
+  trm.insert({"loop exit target number", 1});
   ExpectTestPass(trm);
 }
 
@@ -258,6 +281,7 @@ TEST_F(TestSimplifyLoopExits, LoopWithContinueStatement) {
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", false});
   trm.insert({"loop exit edge number", 0});
+  trm.insert({"loop exit target number", 0});
   ExpectTestPass(trm);
 }
 
@@ -268,6 +292,7 @@ TEST_F(TestSimplifyLoopExits, InfiniteLoop) {
   trm.insert({"header exit landing", ""});
   trm.insert({"header exit on true condition", false});
   trm.insert({"loop exit edge number", 0});
+  trm.insert({"loop exit target number", 0});
   ExpectTestPass(trm);
 }
 
@@ -278,6 +303,7 @@ TEST_F(TestSimplifyLoopExits, DeadLoop) {
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", false});
   trm.insert({"loop exit edge number", 0});
+  trm.insert({"loop exit target number", 0});
   ExpectTestPass(trm);
 }
 
@@ -288,6 +314,7 @@ TEST_F(TestSimplifyLoopExits, MultipleExitLoop) {
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", false});
   trm.insert({"loop exit edge number", 3});
+  trm.insert({"loop exit target number", 3});
   ExpectTestPass(trm);
 }
 
@@ -298,6 +325,7 @@ TEST_F(TestSimplifyLoopExits, MultipleExitLoop2) {
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", false});
   trm.insert({"loop exit edge number", 3});
+  trm.insert({"loop exit target number", 3});
   ExpectTestPass(trm);
 }
 
