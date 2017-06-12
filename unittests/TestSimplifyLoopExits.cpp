@@ -241,5 +241,15 @@ TEST_F(TestSimplifyLoopExits, RegularLoopWithPhiAtHeaderExit) {
   ExpectTestPass(trm);
 }
 
+TEST_F(TestSimplifyLoopExits, LoopWithBreakExit) {
+  ParseAssembly("test103.ll");
+  test_result_map trm;
+
+  trm.insert({"header exit landing", "loop_exit_original"});
+  trm.insert({"header exit on true condition", false});
+  trm.insert({"loop exit edge number", 1});
+  ExpectTestPass(trm);
+}
+
 } // namespace anonymous end
 } // namespace icsa end
