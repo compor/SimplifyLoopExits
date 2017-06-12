@@ -336,9 +336,21 @@ TEST_F(TestSimplifyLoopExits, MultipleExitLoop3) {
   trm.insert({"header exit landing", "loop_exit_original"});
   trm.insert({"header exit on true condition", false});
   trm.insert({"loop exit edge number", 3});
+  trm.insert({"loop exit target number", 3});
   ExpectTestPass(trm);
 }
 
+TEST_F(TestSimplifyLoopExits, DISABLED_MultipleExitLoop4) {
+  // this is not a loop anymore
+  ParseAssembly("test107d.ll");
+  test_result_map trm;
+
+  trm.insert({"header exit landing", "loop_exit_original"});
+  trm.insert({"header exit on true condition", false});
+  trm.insert({"loop exit edge number", 3});
+  trm.insert({"loop exit target number", 3});
+  ExpectTestPass(trm);
+}
 
 } // namespace anonymous end
 } // namespace icsa end
