@@ -1,6 +1,6 @@
 
 ; multiple exit loop 
-; the extra exits are unique and do not overlap with the header exit
+; one of the extra exits overlaps with the header exit
 
 define void @test() {
 entry:
@@ -19,7 +19,7 @@ while.body:                                       ; preds = %while.cond
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %while.body
-  br label %loop_exit_a
+  br label %loop_exit_original
 
 if.end:                                           ; preds = %while.body
   %cmp1 = icmp eq i32 %inc, 5
@@ -39,16 +39,13 @@ if.end.6:                                         ; preds = %if.end.3
   %inc7 = add nsw i32 %inc, 1
   br label %while.cond
 
-loop_exit_original:                               ; preds = %while.cond
-  br label %loop_exit_a
-
-loop_exit_a:                                      ; preds = %loop_exit_original, %if.then
-  %a.1 = phi i32 [ %inc, %if.then ], [ %a.0, %loop_exit_original ]
+loop_exit_original:                               ; preds = %while.cond, %if.then
+  %a.1 = phi i32 [ %inc, %if.then ], [ %a.0, %while.cond ]
   %inc8 = add nsw i32 %a.1, 1
   br label %loop_exit_b
 
-loop_exit_b:                                      ; preds = %loop_exit_a, %if.then.2
-  %a.2 = phi i32 [ %inc8, %loop_exit_a ], [ %inc, %if.then.2 ]
+loop_exit_b:                                      ; preds = %loop_exit_original, %if.then.2
+  %a.2 = phi i32 [ %inc8, %loop_exit_original ], [ %inc, %if.then.2 ]
   %add = add nsw i32 %a.2, 2
   br label %loop_exit_c
 

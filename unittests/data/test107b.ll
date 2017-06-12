@@ -1,4 +1,7 @@
 
+; multiple exit loop 
+; the extra exits do not overlap with the header exit and one of them is used as
+; target twice
 
 define void @test() {
 entry:
