@@ -281,5 +281,15 @@ TEST_F(TestSimplifyLoopExits, DeadLoop) {
   ExpectTestPass(trm);
 }
 
+TEST_F(TestSimplifyLoopExits, MultipleExitLoop) {
+  ParseAssembly("test107.ll");
+  test_result_map trm;
+
+  trm.insert({"header exit landing", "loop_exit_original"});
+  trm.insert({"header exit on true condition", false});
+  trm.insert({"loop exit edge number", 3});
+  ExpectTestPass(trm);
+}
+
 } // namespace anonymous end
 } // namespace icsa end
