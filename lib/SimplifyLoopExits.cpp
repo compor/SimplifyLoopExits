@@ -37,6 +37,9 @@
 #include <cassert>
 // using assert
 
+// TODO remove this
+#include "llvm/Support/raw_ostream.h"
+
 namespace icsa {
 
 indexed_basicblock_t
@@ -154,24 +157,6 @@ SimplifyLoopExits::attachExitCondition(llvm::Loop &CurLoop,
 }
 
 llvm::BasicBlock *SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
-  // get exiting blocks
-  // llvm::SmallVector<llvm::BasicBlock *, 5> exiting;
-  // CurLoop.getExitingBlocks(exiting);
-
-  // auto NumHeaderExits = 0ul;
-  // auto NumNonHeaderExits = 0ul;
-
-  // auto *loopHdr = CurLoop.getHeader();
-  // for (const auto &e : exiting)
-  // if (loopHdr == e)
-  // NumHeaderExits++;
-
-  // NumNonHeaderExits = exiting.size() - NumHeaderExits;
-
-  //// get exit landings
-  // llvm::SmallVector<llvm::BasicBlock *, 5> uniqueExitLandings;
-  // CurLoop.getUniqueExitBlocks(uniqueExitLandings);
-
   // get header exit landing
   // TODO handle headers with no exits
   auto hdrExit = getHeaderExit(CurLoop);
