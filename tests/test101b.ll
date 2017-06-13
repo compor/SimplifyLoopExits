@@ -1,7 +1,11 @@
+; regular loop
+
 ; RUN: opt -load %bindir/%testeelib -simplify-loop-exits -S < %s | FileCheck %s
 
 define void @test() {
 entry:
+; CHECK: {{sle_flag*}}
+; CHECK: {{sle_switch*}}
   br label %while.cond
 
 while.cond:                                       ; preds = %while.body, %entry
