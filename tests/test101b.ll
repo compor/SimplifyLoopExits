@@ -9,7 +9,7 @@ while.cond:                                       ; preds = %while.body, %entry
   %i.0 = phi i32 [ 10, %entry ], [ %dec, %while.body ]
   %dec = add nsw i32 %i.0, -1
   %tobool = icmp ne i32 %dec, 0
-; CHECK: {{unified_loop_cond*}}
+; CHECK: {{sle_cond*}}
 ; CHECK-SAME: and
   br i1 %tobool, label %while.body, label %loop_exit_original
 

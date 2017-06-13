@@ -12,7 +12,7 @@ while.cond:                                       ; preds = %while.body, %entry
   %dec = add nsw i32 %i.0, -1
   %tobool = icmp ne i32 %dec, 0
   %tobool2 = select i1 %tobool, i1 0, i1 1
-; CHECK: {{unified_loop_cond*}}
+; CHECK: {{sle_cond*}}
 ; CHECK-SAME: or
   br i1 %tobool2, label %loop_exit_original, label %while.body
 

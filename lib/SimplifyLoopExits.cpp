@@ -31,14 +31,14 @@
 #include "llvm/Support/Casting.h"
 // using llvm::dyn_cast
 
+#include "llvm/Support/raw_ostream.h"
+// using llvm::raw_ostream
+
 #include <set>
 // using std::set
 
 #include <cassert>
 // using assert
-
-// TODO remove this
-#include "llvm/Support/raw_ostream.h"
 
 namespace icsa {
 
@@ -74,7 +74,7 @@ bool SimplifyLoopExits::getExitConditionValue(llvm::Loop &CurLoop) const {
 loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
   loop_exit_edge_t edges{};
 
-  for (const auto *bb : CurLoop.getBlocks()) {
+  for (auto *bb : CurLoop.getBlocks()) {
     if (bb == CurLoop.getHeader())
       continue;
 
@@ -83,7 +83,7 @@ loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
 
     auto numSucc = term->getNumSuccessors();
     for (decltype(numSucc) i = 0; i < numSucc; ++i) {
-      const auto *succ = term->getSuccessor(i);
+      auto *succ = term->getSuccessor(i);
       if (!CurLoop.contains(succ))
         externalSucc.insert(succ);
     }
@@ -106,7 +106,7 @@ llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
 
   auto *flagType = hdrBranch->getCondition()->getType();
   auto *flagAlloca = new llvm::AllocaInst(
-      flagType, nullptr, "unified_exit_flag", loopPreHdr->getTerminator());
+      flagType, nullptr, "sle_flag", loopPreHdr->getTerminator());
 
   return flagAlloca;
 }
@@ -121,9 +121,8 @@ llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *Val, bool On,
   return flagStore;
 }
 
-llvm::Value *
-SimplifyLoopExits::attachExitCondition(llvm::Loop &CurLoop,
-                                       llvm::Value *UnifiedExitFlag) {
+llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
+                                               llvm::Value *UnifiedExitFlag) {
   if (!UnifiedExitFlag) {
     UnifiedExitFlag = addExitFlag(CurLoop);
     setExitFlag(UnifiedExitFlag, !getExitConditionValue(CurLoop),
@@ -136,8 +135,8 @@ SimplifyLoopExits::attachExitCondition(llvm::Loop &CurLoop,
   auto *hdrBranch = llvm::dyn_cast<llvm::BranchInst>(hdrTerm);
 
   // load unified exit flag value
-  auto *UnifiedExitFlagValue =
-      new llvm::LoadInst(UnifiedExitFlag, "unified_exit_flag_load", hdrBranch);
+  auto *UnifiedExitFlagValue = new llvm::LoadInst(
+      UnifiedExitFlag, "sle_flag_load", hdrBranch);
 
   // determine operation based on what boolean value exits the loop
   llvm::Instruction::BinaryOps operation =
@@ -148,12 +147,54 @@ SimplifyLoopExits::attachExitCondition(llvm::Loop &CurLoop,
   // condition
   auto *unifiedCond = llvm::BinaryOperator::Create(
       operation, hdrBranch->getCondition(), UnifiedExitFlagValue,
-      "unified_loop_cond", hdrBranch);
+      "sle_cond", hdrBranch);
 
   // replace loop header exit branch condition
   hdrBranch->setCondition(unifiedCond);
 
   return unifiedCond;
+}
+
+llvm::Value *SimplifyLoopExits::addExitSwitchCond(llvm::Loop &CurLoop) {
+  auto *loopPreHdr = CurLoop.getLoopPreheader();
+  assert(loopPreHdr);
+
+  auto *term = loopPreHdr->getTerminator();
+  assert(llvm::isa<llvm::BranchInst>(term));
+
+  auto *caseType = llvm::Type::getInt32Ty(loopPreHdr->getContext());
+  auto *caseAlloca =
+      new llvm::AllocaInst(caseType, nullptr, "sle_switch", term);
+
+  return caseAlloca;
+}
+
+llvm::Value *
+SimplifyLoopExits::setExitSwitchValue(llvm::Value *Val, std::int32_t Case,
+                                      llvm::BasicBlock *Insertion) {
+  auto *caseVal = llvm::ConstantInt::get(
+      llvm::Type::getInt32Ty(Insertion->getContext()), Case);
+  auto *caseStore =
+      new llvm::StoreInst(caseVal, Val, Insertion->getTerminator());
+
+  return caseStore;
+}
+
+void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
+                                         llvm::Value *ExitFlag,
+                                         llvm::Value *ExitSwitchCond,
+                                         loop_exit_edge_t &LoopExitEdges) {
+  std::int32_t caseVal = 0;
+  auto exitCond = getExitConditionValue(CurLoop);
+
+  for (auto &e : LoopExitEdges) {
+    auto *exitVal = setExitFlag(ExitFlag, exitCond, e.first);
+
+    ++caseVal;
+    auto *exitSwitchVal = setExitSwitchValue(ExitSwitchCond, caseVal, e.first);
+  }
+
+  return;
 }
 
 llvm::BasicBlock *SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
@@ -165,7 +206,7 @@ llvm::BasicBlock *SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
   auto &curContext = curFunc->getContext();
 
   // create unified exit and place as current header exit's predecessor
-  auto *unifiedExit = llvm::BasicBlock::Create(curContext, "unified_loop_exit",
+  auto *unifiedExit = llvm::BasicBlock::Create(curContext, "sle_exit",
                                                curFunc, hdrExit.first);
 
   llvm::BranchInst::Create(hdrExit.first, unifiedExit);

@@ -99,10 +99,17 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
     SimplifyLoopExits sle;
     sle.attachExitBlock(*CurLoop);
     auto *exitFlag = sle.addExitFlag(*CurLoop);
-    auto *exitCond =
+    auto *exitFlagVal =
         sle.setExitFlag(exitFlag, !sle.getExitConditionValue(*CurLoop),
                         CurLoop->getLoopPreheader());
-    sle.attachExitCondition(*CurLoop, exitFlag);
+    sle.attachExitFlag(*CurLoop, exitFlag);
+
+    auto *exitSwitch = sle.addExitSwitchCond(*CurLoop);
+    auto *exitSwitchVal =
+        sle.setExitSwitchValue(exitSwitch, 0, CurLoop->getLoopPreheader());
+
+    auto loopExitEdges = sle.getEdges(*CurLoop);
+    sle.attachExitValues(*CurLoop, exitFlag, exitSwitch, loopExitEdges);
   }
 
   return false;

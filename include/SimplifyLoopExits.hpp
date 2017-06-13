@@ -5,6 +5,9 @@
 #ifndef SIMPLIFYLOOPEXITS_HPP
 #define SIMPLIFYLOOPEXITS_HPP
 
+#include <cstdint>
+// using std::int32_t
+
 #include <map>
 // using std::map
 
@@ -23,8 +26,8 @@ class raw_ostream;
 
 using indexed_basicblock_t = std::pair<llvm::BasicBlock *, unsigned>;
 
-using loop_exit_target_t = std::set<const llvm::BasicBlock *>;
-using loop_exit_edge_t = std::map<const llvm::BasicBlock *, loop_exit_target_t>;
+using loop_exit_target_t = std::set<llvm::BasicBlock *>;
+using loop_exit_edge_t = std::map<llvm::BasicBlock *, loop_exit_target_t>;
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &ros,
                               const loop_exit_edge_t &LoopExitEdges);
@@ -42,8 +45,17 @@ public:
   llvm::Value *addExitFlag(llvm::Loop &CurLoop);
   llvm::Value *setExitFlag(llvm::Value *Val, bool On,
                            llvm::BasicBlock *Insertion);
-  llvm::Value *attachExitCondition(llvm::Loop &CurLoop,
-                                   llvm::Value *UnifiedExitFlag = nullptr);
+  llvm::Value *attachExitFlag(llvm::Loop &CurLoop,
+                              llvm::Value *UnifiedExitFlag = nullptr);
+
+  llvm::Value *addExitSwitchCond(llvm::Loop &CurLoop);
+  llvm::Value *setExitSwitchValue(llvm::Value *Val, std::int32_t Case,
+                                  llvm::BasicBlock *Insertion);
+
+  void attachExitValues(llvm::Loop &CurLoop, llvm::Value *ExitFlag,
+                        llvm::Value *ExitSwitchCond,
+                        loop_exit_edge_t &LoopExitEdges);
+
   llvm::BasicBlock *attachExitBlock(llvm::Loop &CurLoop);
 };
 
