@@ -181,23 +181,40 @@ llvm::BasicBlock *SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &ros,
                               const loop_exit_edge_t &LoopExitEdges) {
+  const llvm::StringRef title1{"Edge Head    "};
+  const llvm::StringRef title2{"Edge Target  "};
+  const llvm::StringRef anon{"unnamed"};
+  const llvm::StringRef delimiter{"|"};
+  const auto titleLength = title1.size();
+  const std::string separator(2 * titleLength + delimiter.size(), '-');
+  const std::string entryTemplate(titleLength, ' ');
+
+  ros << title1 << "|" << title2;
+  ros << "\n" << separator << "\n";
+
   for (const auto &e : LoopExitEdges) {
-    ros << "\nEdge Head";
-    ros << "\n---------\n";
+    std::string entry1{anon.str()};
+    std::string fill1{""};
+    auto fillLength1 = 0;
 
     if (e.first->hasName())
-      ros << e.first->getName() << "\n";
-    else
-      e.first->print(ros);
+      entry1 = e.first->getName().substr(0, titleLength).str();
 
-    ros << "\nEdge Targets";
-    ros << "\n------------\n";
+    auto entryLength1 = entry1.size();
+    if (entryLength1 < titleLength)
+      fillLength1 = titleLength - entryLength1;
+
+    fill1.assign(fillLength1, ' ');
 
     for (const auto &t : e.second) {
+      ros << entry1 << fill1 << "|";
+
       if (t->hasName())
-        ros << t->getName() << "\n";
+        ros << t->getName().substr(0, titleLength);
       else
-        t->print(ros);
+        ros << anon;
+
+      ros << "\n";
     }
   }
 
