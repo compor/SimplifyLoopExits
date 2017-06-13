@@ -155,6 +155,8 @@ public:
         const auto &loopExitEdges = sle.getEdges(*CurLoop);
         loop_exit_target_t loopExitTargets{};
 
+        llvm::outs() << loopExitEdges;
+
         std::for_each(std::begin(loopExitEdges), std::end(loopExitEdges),
                       [&loopExitTargets](const auto &e) {
                         for (const auto &t : e.second) {

@@ -18,12 +18,16 @@ namespace llvm {
 class Value;
 class Loop;
 class BasicBlock;
+class raw_ostream;
 } // namespace llvm end
 
 using indexed_basicblock_t = std::pair<llvm::BasicBlock *, unsigned>;
 
 using loop_exit_target_t = std::set<const llvm::BasicBlock *>;
 using loop_exit_edge_t = std::map<const llvm::BasicBlock *, loop_exit_target_t>;
+
+llvm::raw_ostream &operator<<(llvm::raw_ostream &ros,
+                              const loop_exit_edge_t &LoopExitEdges);
 
 namespace icsa {
 

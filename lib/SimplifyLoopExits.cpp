@@ -65,7 +65,7 @@ SimplifyLoopExits::getHeaderExit(const llvm::Loop &CurLoop) const {
 bool SimplifyLoopExits::getExitConditionValue(llvm::Loop &CurLoop) const {
   auto hdrTerm = CurLoop.getHeader()->getTerminator();
 
-  if(!hdrTerm->getNumSuccessors())
+  if (!hdrTerm->getNumSuccessors())
     return false;
 
   return !CurLoop.contains(hdrTerm->getSuccessor(0));
@@ -177,4 +177,29 @@ llvm::BasicBlock *SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
   return unifiedExit;
 }
 
-} // namespace icsa en
+} // namespace icsa end
+
+llvm::raw_ostream &operator<<(llvm::raw_ostream &ros,
+                              const loop_exit_edge_t &LoopExitEdges) {
+  for (const auto &e : LoopExitEdges) {
+    ros << "\nEdge Head";
+    ros << "\n---------\n";
+
+    if (e.first->hasName())
+      ros << e.first->getName() << "\n";
+    else
+      e.first->print(ros);
+
+    ros << "\nEdge Targets";
+    ros << "\n------------\n";
+
+    for (const auto &t : e.second) {
+      if (t->hasName())
+        ros << t->getName() << "\n";
+      else
+        t->print(ros);
+    }
+  }
+
+  return ros;
+}
