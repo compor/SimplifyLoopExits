@@ -2,6 +2,13 @@
 ; multiple exit loop
 ; the extra exits are unique and do not overlap with the header exit
 
+; RUN: opt -load %bindir/%testeelib -simplify-loop-exits -S < %s -o %t
+; RUN: llvm-as %t -o %t.xform.bc
+; RUN: llvm-as %s -o %t.orig.bc
+; RUN: clang -o %t.orig %t.orig.bc %utilitydir/%utilitylib
+; RUN: clang -o %t.xform %t.xform.bc %utilitydir/%utilitylib
+; RUN: diff <(%t.xform) <(%t.orig)
+
 define void @test() {
 entry:
   br label %while.cond
