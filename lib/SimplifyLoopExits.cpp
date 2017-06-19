@@ -105,8 +105,8 @@ llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
   auto *hdrBranch = llvm::dyn_cast<llvm::BranchInst>(hdrTerm);
 
   auto *flagType = hdrBranch->getCondition()->getType();
-  auto *flagAlloca = new llvm::AllocaInst(
-      flagType, nullptr, "sle_flag", loopPreHdr->getTerminator());
+  auto *flagAlloca = new llvm::AllocaInst(flagType, nullptr, "sle_flag",
+                                          loopPreHdr->getTerminator());
 
   return flagAlloca;
 }
@@ -135,8 +135,8 @@ llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
   auto *hdrBranch = llvm::dyn_cast<llvm::BranchInst>(hdrTerm);
 
   // load unified exit flag value
-  auto *UnifiedExitFlagValue = new llvm::LoadInst(
-      UnifiedExitFlag, "sle_flag_load", hdrBranch);
+  auto *UnifiedExitFlagValue =
+      new llvm::LoadInst(UnifiedExitFlag, "sle_flag_load", hdrBranch);
 
   // determine operation based on what boolean value exits the loop
   llvm::Instruction::BinaryOps operation =
@@ -145,9 +145,9 @@ llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
 
   // attach the new exit flag condition to the current loop header exit branch
   // condition
-  auto *unifiedCond = llvm::BinaryOperator::Create(
-      operation, hdrBranch->getCondition(), UnifiedExitFlagValue,
-      "sle_cond", hdrBranch);
+  auto *unifiedCond =
+      llvm::BinaryOperator::Create(operation, hdrBranch->getCondition(),
+                                   UnifiedExitFlagValue, "sle_cond", hdrBranch);
 
   // replace loop header exit branch condition
   hdrBranch->setCondition(unifiedCond);
@@ -197,7 +197,10 @@ void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
   return;
 }
 
-llvm::BasicBlock *SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
+llvm::BasicBlock *
+SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
+                                   llvm::Value *ExitSwitchCond,
+                                   loop_exit_edge_t &LoopExitEdges) {
   // get header exit landing
   // TODO handle headers with no exits
   auto hdrExit = getHeaderExit(CurLoop);
@@ -206,14 +209,38 @@ llvm::BasicBlock *SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop) {
   auto &curContext = curFunc->getContext();
 
   // create unified exit and place as current header exit's predecessor
-  auto *unifiedExit = llvm::BasicBlock::Create(curContext, "sle_exit",
-                                               curFunc, hdrExit.first);
-
-  llvm::BranchInst::Create(hdrExit.first, unifiedExit);
+  auto *unifiedExit =
+      llvm::BasicBlock::Create(curContext, "sle_exit", curFunc, hdrExit.first);
 
   // set loop header exit successor to the new block
   auto hdrTerm = CurLoop.getHeader()->getTerminator();
   hdrTerm->setSuccessor(hdrExit.second, unifiedExit);
+
+  auto *exitSwitchCondVal =
+      new llvm::LoadInst(ExitSwitchCond, "sle_switch_cond_load", unifiedExit);
+  auto *sleSwitch = llvm::SwitchInst::Create(exitSwitchCondVal, hdrExit.first,
+                                             LoopExitEdges.size(), unifiedExit);
+
+  llvm::SmallVector<llvm::BasicBlock *, 5> exitTargets;
+  for (auto &e : LoopExitEdges)
+    for (auto &t : e.second)
+      exitTargets.push_back(t);
+
+  for (std::int32_t caseIdx = 1; caseIdx < exitTargets.size(); ++caseIdx) {
+    auto *caseVal = llvm::ConstantInt::get(
+        llvm::Type::getInt32Ty(CurLoop.getHeader()->getContext()), caseIdx);
+    sleSwitch->addCase(caseVal, exitTargets[caseIdx - 1]);
+  }
+
+  // for (auto caseIt = sleSwitch->case_begin(), caseItEnd =
+  // sleSwitch->case_end();
+  // caseIt != caseItEnd; ++caseIt) {
+  // auto *caseVal = llvm::ConstantInt::get(
+  // llvm::Type::getInt32Ty(CurLoop.getHeader()->getContext()), caseIdx);
+
+  // caseIt.setValue(caseVal);
+  // caseIt.setSuccessor(exitTargets[caseIdx - 1]);
+  //}
 
   return unifiedExit;
 }

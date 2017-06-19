@@ -56,7 +56,9 @@ public:
                         llvm::Value *ExitSwitchCond,
                         loop_exit_edge_t &LoopExitEdges);
 
-  llvm::BasicBlock *attachExitBlock(llvm::Loop &CurLoop);
+  llvm::BasicBlock *attachExitBlock(llvm::Loop &CurLoop,
+                                    llvm::Value *ExitSwitchCond,
+                                    loop_exit_edge_t &LoopExitEdges);
 };
 
 } // namespace icsa end
