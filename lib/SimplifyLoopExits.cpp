@@ -226,21 +226,11 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
     for (auto &t : e.second)
       exitTargets.push_back(t);
 
-  for (std::int32_t caseIdx = 1; caseIdx < exitTargets.size(); ++caseIdx) {
+  for (std::int32_t caseIdx = 1; caseIdx <= exitTargets.size(); ++caseIdx) {
     auto *caseVal = llvm::ConstantInt::get(
         llvm::Type::getInt32Ty(CurLoop.getHeader()->getContext()), caseIdx);
     sleSwitch->addCase(caseVal, exitTargets[caseIdx - 1]);
   }
-
-  // for (auto caseIt = sleSwitch->case_begin(), caseItEnd =
-  // sleSwitch->case_end();
-  // caseIt != caseItEnd; ++caseIt) {
-  // auto *caseVal = llvm::ConstantInt::get(
-  // llvm::Type::getInt32Ty(CurLoop.getHeader()->getContext()), caseIdx);
-
-  // caseIt.setValue(caseVal);
-  // caseIt.setSuccessor(exitTargets[caseIdx - 1]);
-  //}
 
   return unifiedExit;
 }
