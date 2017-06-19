@@ -3,16 +3,13 @@
 ; no phi nodes under the loop exits
 ; added in for variety
 
-; RUN: opt -load %bindir/%testeelib -simplify-loop-exits -S < %s -o %t
-; RUN: llvm-as %t -o %t.xform.bc
-; RUN: llvm-as %s -o %t.orig.bc
-; RUN: clang -o %t.orig %t.orig.bc %utilitydir/%utilitylib
-; RUN: clang -o %t.xform %t.xform.bc %utilitydir/%utilitylib
-; RUN: diff <(%t.xform) <(%t.orig)
-
+; RUN: opt -load %bindir/%testeelib -simplify-loop-exits -S < %s | FileCheck %s
 
 define void @test() {
 entry:
+; CHECK-LABEL: entry:
+; CHECK: {{%sle_flag.*}}
+; CHECK: {{%sle_switch.*}}
   br label %loop_cond
 
 loop_cond:                                       ; preds = %loop_latch, %entry
@@ -20,11 +17,18 @@ loop_cond:                                       ; preds = %loop_latch, %entry
   %i.0 = phi i32 [ 10, %entry ], [ %dec, %loop_latch ]
   %dec = add nsw i32 %i.0, -1
   %tobool = icmp ne i32 %dec, 0
+; CHECK-LABEL: loop_cond:
+; CHECK: {{%sle_cond.* =}}
+; CHECK-SAME: and
+; CHECK: {{%sle_exit.*}}
   br i1 %tobool, label %while.body, label %loop_exit_original
 
 while.body:                                       ; preds = %loop_cond
   %inc = add nsw i32 %a.0, 1
   %cmp = icmp eq i32 %inc, 3
+; CHECK-LABEL: while.body:
+; CHECK: {{%sle_switch.*}}
+; CHECK: {{%loop_latch.*}}
   br i1 %cmp, label %if.then, label %if.else
 
 if.then:                                          ; preds = %while.body
@@ -32,6 +36,9 @@ if.then:                                          ; preds = %while.body
 
 if.else:                                          ; preds = %while.body
   %cmp1 = icmp eq i32 %inc, 5
+; CHECK-LABEL: if.else:
+; CHECK: {{%sle_switch.*}}
+; CHECK: {{%loop_latch.*}}
   br i1 %cmp1, label %if.then.2, label %if.end
 
 if.then.2:                                        ; preds = %if.else
@@ -45,20 +52,15 @@ loop_latch:                                       ; preds = %if.end
   br label %loop_cond
 
 loop_exit_original:                               ; preds = %loop_cond
-  call void @sle_print(i32 %a.0)
-  call void @sle_print(i32 %i.0)
   br label %loop_exit_a
 
 loop_exit_a:                                      ; preds = %loop_exit_original, %if.then
-  call void @sle_print(i32 %a.0)
-  call void @sle_print(i32 %i.0)
   br label %loop_exit_b
 
 loop_exit_b:                                      ; preds = %loop_exit_a, %if.then.2
-  call void @sle_print(i32 %a.0)
-  call void @sle_print(i32 %i.0)
   ret void
 }
 
-declare void @sle_print(i32)
+; CHECK-LABEL: sle_exit:
+; CHECK: {{switch i32}}
 
