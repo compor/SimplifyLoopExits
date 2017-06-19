@@ -238,7 +238,7 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
     for (auto &t : e.second)
       exitTargets.push_back(t);
 
-  // subvert loop branch targets from exit blocks to loop latch
+  assert(CurLoop.getLoopLatch());
   redirectLoopExitsToLatch(CurLoop, exitTargets.begin(), exitTargets.end());
 
   for (std::int32_t caseIdx = 1; caseIdx <= exitTargets.size(); ++caseIdx) {
