@@ -34,6 +34,13 @@
 #include "llvm/Support/raw_ostream.h"
 // using llvm::raw_ostream
 
+#include <iterator>
+// using std::iterator_traits
+
+#include <type_traits>
+// using std::enable_if
+// using std::is_same
+
 #include <set>
 // using std::set
 
@@ -221,10 +228,18 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
   auto *sleSwitch = llvm::SwitchInst::Create(exitSwitchCondVal, hdrExit.first,
                                              LoopExitEdges.size(), unifiedExit);
 
+  // TODO this loop might be unnecessary if loop exiting blocks are always
+  // matched to a single exit block
+  // furthermore, this might also mean that the loop exit target can be a simple
+  // basic block pointer instead of a collection them, which translates to some
+  // sort of a data structure
   llvm::SmallVector<llvm::BasicBlock *, 5> exitTargets;
   for (auto &e : LoopExitEdges)
     for (auto &t : e.second)
       exitTargets.push_back(t);
+
+  // subvert loop branch targets from exit blocks to loop latch
+  redirectLoopExitsToLatch(CurLoop, exitTargets.begin(), exitTargets.end());
 
   for (std::int32_t caseIdx = 1; caseIdx <= exitTargets.size(); ++caseIdx) {
     auto *caseVal = llvm::ConstantInt::get(
@@ -233,6 +248,35 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
   }
 
   return unifiedExit;
+}
+
+template <typename ForwardIter>
+void SimplifyLoopExits::redirectLoopExitsToLatch(llvm::Loop &CurLoop,
+                                                 ForwardIter exitTargetStart,
+                                                 ForwardIter exitTargetEnd) {
+  typename std::enable_if<
+      std::is_same<typename std::iterator_traits<ForwardIter>::value_type,
+                   llvm::BasicBlock *>::value,
+      ForwardIter>::type etIt = exitTargetStart;
+
+  for (; etIt != exitTargetEnd; ++etIt)
+    for (auto *u : (*etIt)->users()) {
+      auto *brInst = llvm::dyn_cast<llvm::BranchInst>(u);
+      if (!brInst)
+        continue;
+
+      if (!CurLoop.contains(brInst))
+        continue;
+
+      auto numSucc = brInst->getNumSuccessors();
+      for (decltype(numSucc) i = 0; i < numSucc; ++i) {
+        auto *succ = brInst->getSuccessor(i);
+        if (*etIt == succ)
+          brInst->setSuccessor(i, CurLoop.getLoopLatch());
+      }
+    }
+
+  return;
 }
 
 } // namespace icsa end

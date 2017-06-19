@@ -59,6 +59,12 @@ public:
   llvm::BasicBlock *attachExitBlock(llvm::Loop &CurLoop,
                                     llvm::Value *ExitSwitchCond,
                                     loop_exit_edge_t &LoopExitEdges);
+
+private:
+  template <typename ForwardIter>
+  void redirectLoopExitsToLatch(llvm::Loop &CurLoop,
+                                ForwardIter exitTargetStart,
+                                ForwardIter exitTargetEnd);
 };
 
 } // namespace icsa end
