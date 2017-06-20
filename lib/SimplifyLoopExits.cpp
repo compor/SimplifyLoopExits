@@ -25,6 +25,9 @@
 #include "llvm/IR/Instruction.h"
 // using llvm::BinaryOps
 
+#include "llvm/IR/InstVisitor.h"
+// using llvm::InstVisitor
+
 #include "llvm/Analysis/LoopInfo.h"
 // using llvm::Loop
 
@@ -48,6 +51,30 @@
 // using assert
 
 namespace icsa {
+
+struct LoopExitDependentPHIVisitor
+    : public llvm::InstVisitor<LoopExitDependentPHIVisitor> {
+  std::set<llvm::PHINode *> m_LoopExitPHINodes;
+  llvm::Loop &m_CurLoop;
+  loop_exit_target_t m_LoopExitTargets;
+
+  LoopExitDependentPHIVisitor(llvm::Loop &CurLoop,
+                              loop_exit_target_t &LoopExitTargets)
+      : m_CurLoop(CurLoop), m_LoopExitTargets(LoopExitTargets) {}
+
+  void visitPHI(llvm::PHINode &I) {
+    auto numInc = I.getNumIncomingValues();
+
+    for (decltype(numInc) i = 0; i < numInc; ++i) {
+      auto *bb = I.getIncomingBlock(i);
+      if (m_CurLoop.contains(bb) &&
+          m_LoopExitTargets.find(bb) != m_LoopExitTargets.end())
+        m_LoopExitPHINodes.insert(&I);
+    }
+
+    return;
+  }
+};
 
 indexed_basicblock_t
 SimplifyLoopExits::getHeaderExit(const llvm::Loop &CurLoop) const {
