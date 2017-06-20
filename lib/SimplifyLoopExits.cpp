@@ -67,7 +67,7 @@ struct LoopExitDependentPHIVisitor
 
     for (decltype(numInc) i = 0; i < numInc; ++i) {
       auto *bb = I.getIncomingBlock(i);
-      if (m_CurLoop.contains(bb) &&
+      if (!m_CurLoop.contains(bb) &&
           m_LoopExitTargets.find(bb) != m_LoopExitTargets.end())
         m_LoopExitPHINodes.insert(&I);
     }
@@ -255,23 +255,28 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
   auto *sleSwitch = llvm::SwitchInst::Create(exitSwitchCondVal, hdrExit.first,
                                              LoopExitEdges.size(), unifiedExit);
 
-  // TODO this loop might be unnecessary if loop exiting blocks are always
+  // this loop might be unnecessary if each loop exiting block is always
   // matched to a single exit block
   // furthermore, this might also mean that the loop exit target can be a simple
   // basic block pointer instead of a collection them, which translates to some
   // sort of a data structure
-  llvm::SmallVector<llvm::BasicBlock *, 5> exitTargets;
+  loop_exit_target_t exitTargets;
   for (auto &e : LoopExitEdges)
     for (auto &t : e.second)
-      exitTargets.push_back(t);
+      exitTargets.insert(t);
+
+  LoopExitDependentPHIVisitor ledPHIVisitor{CurLoop, exitTargets};
+  ledPHIVisitor.visit(CurLoop.getHeader()->getParent());
 
   assert(CurLoop.getLoopLatch());
   redirectLoopExitsToLatch(CurLoop, exitTargets.begin(), exitTargets.end());
 
+  auto et = exitTargets.begin();
   for (std::int32_t caseIdx = 1; caseIdx <= exitTargets.size(); ++caseIdx) {
     auto *caseVal = llvm::ConstantInt::get(
         llvm::Type::getInt32Ty(CurLoop.getHeader()->getContext()), caseIdx);
-    sleSwitch->addCase(caseVal, exitTargets[caseIdx - 1]);
+    sleSwitch->addCase(caseVal, *et);
+    ++et;
   }
 
   return unifiedExit;
