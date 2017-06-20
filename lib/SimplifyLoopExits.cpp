@@ -34,6 +34,12 @@
 #include "llvm/Support/Casting.h"
 // using llvm::dyn_cast
 
+#include "llvm/Transforms/Utils/Local.h"
+// using llvm::DemotePHIToStack
+
+#include "llvm/Support/FileSystem.h"
+// using llvm::sys::fs::OpenFlags
+
 #include "llvm/Support/raw_ostream.h"
 // using llvm::raw_ostream
 
@@ -268,6 +274,11 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
   LoopExitDependentPHIVisitor ledPHIVisitor{CurLoop, exitTargets};
   ledPHIVisitor.visit(CurLoop.getHeader()->getParent());
 
+  for (auto &phi : ledPHIVisitor.m_LoopExitPHINodes) {
+    phi->print(llvm::outs());
+    llvm::DemotePHIToStack(phi, CurLoop.getLoopPreheader()->getTerminator());
+  }
+
   assert(CurLoop.getLoopLatch());
   redirectLoopExitsToLatch(CurLoop, exitTargets.begin(), exitTargets.end());
 
@@ -278,6 +289,10 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
     sleSwitch->addCase(caseVal, *et);
     ++et;
   }
+
+  std::error_code ec;
+  llvm::raw_fd_ostream debug_file("dbg.ll", ec, llvm::sys::fs::F_Text);
+  CurLoop.getHeader()->getParent()->print(debug_file);
 
   return unifiedExit;
 }
