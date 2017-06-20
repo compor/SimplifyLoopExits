@@ -275,8 +275,12 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
   ledPHIVisitor.visit(CurLoop.getHeader()->getParent());
 
   for (auto &phi : ledPHIVisitor.m_LoopExitPHINodes) {
-    phi->print(llvm::outs());
-    llvm::DemotePHIToStack(phi, CurLoop.getLoopPreheader()->getTerminator());
+    for (auto &e : phi->incoming_values()) {
+      auto *reg = llvm::dyn_cast<llvm::Instruction>(e);
+      if (reg && CurLoop.contains(reg->getParent()))
+        llvm::DemoteRegToStack(*reg, false,
+                               CurLoop.getLoopPreheader()->getTerminator());
+    }
   }
 
   assert(CurLoop.getLoopLatch());
