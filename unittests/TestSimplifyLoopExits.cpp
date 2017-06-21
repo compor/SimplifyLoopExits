@@ -337,7 +337,7 @@ TEST_F(TestSimplifyLoopExits, MultipleExitLoop2) {
   ExpectTestPass(trm);
 }
 
-TEST_F(TestSimplifyLoopExits, MultipleExitLoop3) {
+TEST_F(TestSimplifyLoopExits, DISABLED_MultipleExitLoop3) {
   ParseAssembly("test107c.ll");
   test_result_map trm;
 
