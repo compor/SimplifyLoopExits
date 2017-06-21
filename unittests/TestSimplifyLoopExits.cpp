@@ -1,3 +1,6 @@
+//
+//
+//
 
 #include <memory>
 // using std::unique_ptr
@@ -155,7 +158,7 @@ public:
         const auto &loopExitEdges = sle.getEdges(*CurLoop);
         loop_exit_target_t loopExitTargets{};
 
-        llvm::outs() << loopExitEdges;
+        //llvm::outs() << loopExitEdges;
 
         std::for_each(std::begin(loopExitEdges), std::end(loopExitEdges),
                       [&loopExitTargets](const auto &e) {
@@ -197,6 +200,9 @@ public:
           const auto &ev = boost::get<int>(found->second);
           EXPECT_EQ(ev, rv) << found->first;
         }
+
+        if (llvm::verifyModule(*F.getParent(), &(llvm::errs())))
+          llvm::report_fatal_error("module verification after pass failed\n");
 
         return false;
       }
