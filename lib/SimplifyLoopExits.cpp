@@ -115,9 +115,10 @@ bool SimplifyLoopExits::getExitConditionValue(llvm::Loop &CurLoop) const {
 }
 
 loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
-  // assert(CurLoop.hasDedicatedExits()
-  //&& "Loop must have exits with all their predecessors belonging in the
-  //loop!");
+  // we do not really need dedicated loop exits but that is what we get if we
+  // apply the loop simplify pass prior to this
+  // assert(CurLoop.hasDedicatedExits() &&
+  //"Loop exit predecessors must belong to the loop!");
 
   loop_exit_edge_t edges{};
 

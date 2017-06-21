@@ -2,6 +2,9 @@
 ; multiple exit loop 
 ; one of the extra exits overlaps with the header exit
 
+; this is not in loop canonical/simplify form because 
+; it does not have dedicated loop exits for loop_exit_original
+
 define void @test() {
 entry:
   br label %while.cond
