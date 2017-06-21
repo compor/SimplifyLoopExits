@@ -115,6 +115,10 @@ bool SimplifyLoopExits::getExitConditionValue(llvm::Loop &CurLoop) const {
 }
 
 loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
+  // assert(CurLoop.hasDedicatedExits()
+  //&& "Loop must have exits with all their predecessors belonging in the
+  //loop!");
+
   loop_exit_edge_t edges{};
 
   for (auto *bb : CurLoop.getBlocks()) {
@@ -243,6 +247,10 @@ void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
   for (auto &e : LoopExitEdges) {
     auto *exitVal = setExitFlag(ExitFlag, exitCond, e.first);
 
+    auto *term = e.first->getTerminator();
+    assert(term->getNumSuccessors() <= 2 &&
+           "Loop exiting block with more than 2 successors is not supported!");
+
     ++caseVal;
     auto *exitSwitchVal = setExitSwitchValue(ExitSwitchCond, caseVal, e.first);
   }
@@ -319,6 +327,8 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
   return unifiedExit;
 }
 
+// private methods
+
 template <typename ForwardIter>
 void SimplifyLoopExits::redirectLoopExitsToLatch(llvm::Loop &CurLoop,
                                                  ForwardIter exitTargetStart,
@@ -352,6 +362,8 @@ void SimplifyLoopExits::redirectLoopExitsToLatch(llvm::Loop &CurLoop,
 }
 
 } // namespace icsa end
+
+// external functions
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &ros,
                               const loop_exit_edge_t &LoopExitEdges) {
