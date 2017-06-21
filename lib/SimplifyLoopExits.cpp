@@ -10,8 +10,8 @@
 #include "llvm/IR/BasicBlock.h"
 // using llvm::BasicBlock
 
-#include "llvm/IR/Type.h"
-// using llvm::Type
+#include "llvm/IR/DerivedTypes.h"
+// using llvm::IntegerType
 
 #include "llvm/IR/Constants.h"
 // using llvm::ConstantInt
@@ -50,10 +50,16 @@
 #include <set>
 // using std::set
 
+#include <limits>
+// using std::numeric_limits
+
 #include <cassert>
 // using assert
 
 namespace icsa {
+
+constexpr auto unified_exit_case_type_bits =
+    std::numeric_limits<SimplifyLoopExits::unified_exit_case_type>::digits;
 
 struct LoopExitDependentPHIVisitor
     : public llvm::InstVisitor<LoopExitDependentPHIVisitor> {
@@ -142,7 +148,8 @@ llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
 
   auto *flagType = hdrBranch->isConditional()
                        ? hdrBranch->getCondition()->getType()
-                       : llvm::Type::getInt32Ty(hdrBranch->getContext());
+                       : llvm::IntegerType::get(hdrBranch->getContext(),
+                                                unified_exit_case_type_bits);
   auto *flagAlloca = new llvm::AllocaInst(flagType, nullptr, "sle_flag",
                                           loopPreHdr->getTerminator());
 
@@ -204,7 +211,8 @@ llvm::Value *SimplifyLoopExits::addExitSwitchCond(llvm::Loop &CurLoop) {
   auto *loopPreHdr = CurLoop.getLoopPreheader();
   assert(loopPreHdr && "Loop is required to have a preheader!");
 
-  auto *caseType = llvm::Type::getInt32Ty(loopPreHdr->getContext());
+  auto *caseType = llvm::IntegerType::get(loopPreHdr->getContext(),
+                                          unified_exit_case_type_bits);
   auto *caseAlloca = new llvm::AllocaInst(caseType, nullptr, "sle_switch",
                                           loopPreHdr->getTerminator());
 
@@ -216,7 +224,9 @@ SimplifyLoopExits::setExitSwitchValue(llvm::Value *Val,
                                       unified_exit_case_type Case,
                                       llvm::BasicBlock *Insertion) {
   auto *caseVal = llvm::ConstantInt::get(
-      llvm::Type::getInt32Ty(Insertion->getContext()), Case);
+      llvm::IntegerType::get(Insertion->getContext(),
+                             unified_exit_case_type_bits),
+      Case);
   auto *caseStore =
       new llvm::StoreInst(caseVal, Val, Insertion->getTerminator());
 
@@ -295,13 +305,15 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
 
   redirectLoopExitsToLatch(CurLoop, exitTargets.begin(), exitTargets.end());
 
+  unified_exit_case_type caseIdx = 1;
   auto et = exitTargets.begin();
-  for (unified_exit_case_type caseIdx = 1; caseIdx <= exitTargets.size();
-       ++caseIdx) {
+
+  for (; caseIdx <= exitTargets.size(); ++caseIdx, ++et) {
     auto *caseVal = llvm::ConstantInt::get(
-        llvm::Type::getInt32Ty(CurLoop.getHeader()->getContext()), caseIdx);
+        llvm::IntegerType::get(CurLoop.getHeader()->getContext(),
+                               unified_exit_case_type_bits),
+        caseIdx);
     sleSwitch->addCase(caseVal, *et);
-    ++et;
   }
 
   return unifiedExit;

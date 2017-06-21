@@ -36,7 +36,7 @@ namespace icsa {
 
 class SimplifyLoopExits {
 public:
-  using unified_exit_case_type = std::int32_t;
+  using unified_exit_case_type = std::uint32_t;
 
 public:
   SimplifyLoopExits() = default;
