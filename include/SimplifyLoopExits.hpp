@@ -36,6 +36,9 @@ namespace icsa {
 
 class SimplifyLoopExits {
 public:
+  using unified_exit_case_type = std::int32_t;
+
+public:
   SimplifyLoopExits() = default;
 
   indexed_basicblock_t getHeaderExit(const llvm::Loop &CurLoop) const;
@@ -49,7 +52,7 @@ public:
                               llvm::Value *UnifiedExitFlag = nullptr);
 
   llvm::Value *addExitSwitchCond(llvm::Loop &CurLoop);
-  llvm::Value *setExitSwitchValue(llvm::Value *Val, std::int32_t Case,
+  llvm::Value *setExitSwitchValue(llvm::Value *Val, unified_exit_case_type Case,
                                   llvm::BasicBlock *Insertion);
 
   void attachExitValues(llvm::Loop &CurLoop, llvm::Value *ExitFlag,

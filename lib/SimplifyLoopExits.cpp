@@ -212,7 +212,8 @@ llvm::Value *SimplifyLoopExits::addExitSwitchCond(llvm::Loop &CurLoop) {
 }
 
 llvm::Value *
-SimplifyLoopExits::setExitSwitchValue(llvm::Value *Val, std::int32_t Case,
+SimplifyLoopExits::setExitSwitchValue(llvm::Value *Val,
+                                      unified_exit_case_type Case,
                                       llvm::BasicBlock *Insertion) {
   auto *caseVal = llvm::ConstantInt::get(
       llvm::Type::getInt32Ty(Insertion->getContext()), Case);
@@ -226,7 +227,7 @@ void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
                                          llvm::Value *ExitFlag,
                                          llvm::Value *ExitSwitchCond,
                                          loop_exit_edge_t &LoopExitEdges) {
-  std::int32_t caseVal = 0;
+  unified_exit_case_type caseVal = 0;
   auto exitCond = getExitConditionValue(CurLoop);
 
   for (auto &e : LoopExitEdges) {
@@ -295,7 +296,8 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
   redirectLoopExitsToLatch(CurLoop, exitTargets.begin(), exitTargets.end());
 
   auto et = exitTargets.begin();
-  for (std::int32_t caseIdx = 1; caseIdx <= exitTargets.size(); ++caseIdx) {
+  for (unified_exit_case_type caseIdx = 1; caseIdx <= exitTargets.size();
+       ++caseIdx) {
     auto *caseVal = llvm::ConstantInt::get(
         llvm::Type::getInt32Ty(CurLoop.getHeader()->getContext()), caseIdx);
     sleSwitch->addCase(caseVal, *et);
