@@ -81,7 +81,7 @@ struct LoopExitDependentPHIVisitor
     for (auto bi = llvm::succ_begin(CurLoop.getHeader()),
               be = llvm::succ_end(CurLoop.getHeader());
          bi != be; ++bi)
-      if(!m_CurLoop.contains(*bi))
+      if (!m_CurLoop.contains(*bi))
         m_LoopExitTargets.insert(*bi);
 
     return;
@@ -131,10 +131,8 @@ bool SimplifyLoopExits::getExitConditionValue(llvm::Loop &CurLoop) const {
 }
 
 loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
-  // we do not really need dedicated loop exits but that is what we get if we
-  // apply the loop simplify pass prior to this
-  // assert(CurLoop.hasDedicatedExits() &&
-  //"Loop exit predecessors must belong to the loop!");
+  assert(CurLoop.hasDedicatedExits() &&
+         "Loop exit predecessors must belong only to the loop!");
 
   loop_exit_edge_t edges{};
 
