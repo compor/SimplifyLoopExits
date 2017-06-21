@@ -7,6 +7,10 @@
 #include "llvm/ADT/SmallVector.h"
 // using llvm::SmallVector
 
+#include "llvm/IR/CFG.h"
+// using llvm::succ_begin
+// using llvm::succ_end
+
 #include "llvm/IR/BasicBlock.h"
 // using llvm::BasicBlock
 
@@ -68,12 +72,20 @@ constexpr auto unified_exit_case_type_bits =
 struct LoopExitDependentPHIVisitor
     : public llvm::InstVisitor<LoopExitDependentPHIVisitor> {
   std::set<llvm::PHINode *> m_LoopExitPHINodes;
-  llvm::Loop &m_CurLoop;
+  const llvm::Loop &m_CurLoop;
   loop_exit_target_t m_LoopExitTargets;
 
-  LoopExitDependentPHIVisitor(llvm::Loop &CurLoop,
-                              loop_exit_target_t &LoopExitTargets)
-      : m_CurLoop(CurLoop), m_LoopExitTargets(LoopExitTargets) {}
+  LoopExitDependentPHIVisitor(const llvm::Loop &CurLoop,
+                              const loop_exit_target_t &LoopExitTargets)
+      : m_CurLoop(CurLoop), m_LoopExitTargets(LoopExitTargets) {
+    for (auto bi = llvm::succ_begin(CurLoop.getHeader()),
+              be = llvm::succ_end(CurLoop.getHeader());
+         bi != be; ++bi)
+      if(!m_CurLoop.contains(*bi))
+        m_LoopExitTargets.insert(*bi);
+
+    return;
+  }
 
   void visitPHI(llvm::PHINode &I) {
     auto numInc = I.getNumIncomingValues();
