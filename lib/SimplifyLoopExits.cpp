@@ -56,6 +56,10 @@
 #include <cassert>
 // using assert
 
+// TODO remove this
+#include "llvm/Support/FileSystem.h"
+// using llvm::sys::fs::OpenFlags
+
 namespace icsa {
 
 constexpr auto unified_exit_case_type_bits =
@@ -324,6 +328,10 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
         caseIdx);
     sleSwitch->addCase(caseVal, *et);
   }
+
+  //std::error_code ec;
+  //llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
+  //CurLoop.getHeader()->getParent()->print(dbg);
 
   return unifiedExit;
 }
