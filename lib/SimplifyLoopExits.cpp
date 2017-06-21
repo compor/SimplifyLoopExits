@@ -35,10 +35,7 @@
 // using llvm::dyn_cast
 
 #include "llvm/Transforms/Utils/Local.h"
-// using llvm::DemotePHIToStack
-
-#include "llvm/Support/FileSystem.h"
-// using llvm::sys::fs::OpenFlags
+// using llvm::DemoteRegToStack
 
 #include "llvm/Support/raw_ostream.h"
 // using llvm::raw_ostream
@@ -137,14 +134,15 @@ loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
 
 llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
   auto *loopPreHdr = CurLoop.getLoopPreheader();
-  auto *hdrTerm = CurLoop.getHeader()->getTerminator();
+  assert(loopPreHdr && "Loop is required to have a preheader!");
 
-  assert(loopPreHdr);
-  assert(llvm::isa<llvm::BranchInst>(hdrTerm));
+  auto *hdrBranch =
+      llvm::dyn_cast<llvm::BranchInst>(CurLoop.getHeader()->getTerminator());
+  assert(hdrBranch && "Loop header terminator must be a branch instruction!");
 
-  auto *hdrBranch = llvm::dyn_cast<llvm::BranchInst>(hdrTerm);
-
-  auto *flagType = hdrBranch->getCondition()->getType();
+  auto *flagType = hdrBranch->isConditional()
+                       ? hdrBranch->getCondition()->getType()
+                       : llvm::Type::getInt32Ty(hdrBranch->getContext());
   auto *flagAlloca = new llvm::AllocaInst(flagType, nullptr, "sle_flag",
                                           loopPreHdr->getTerminator());
 
@@ -163,48 +161,52 @@ llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *Val, bool On,
 
 llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
                                                llvm::Value *UnifiedExitFlag) {
+  auto *loopPreHdr = CurLoop.getLoopPreheader();
+  assert(loopPreHdr && "Loop is required to have a preheader!");
+
   if (!UnifiedExitFlag) {
     UnifiedExitFlag = addExitFlag(CurLoop);
-    setExitFlag(UnifiedExitFlag, !getExitConditionValue(CurLoop),
-                CurLoop.getLoopPreheader());
+    setExitFlag(UnifiedExitFlag, !getExitConditionValue(CurLoop), loopPreHdr);
   }
 
   // get branch instruction to use as instruction insertion point
-  auto *hdrTerm = CurLoop.getHeader()->getTerminator();
-  assert(llvm::isa<llvm::BranchInst>(hdrTerm));
-  auto *hdrBranch = llvm::dyn_cast<llvm::BranchInst>(hdrTerm);
+  auto *hdrBranch =
+      llvm::dyn_cast<llvm::BranchInst>(CurLoop.getHeader()->getTerminator());
+  assert(hdrBranch && "Loop header terminator must be a branch instruction!");
 
   // load unified exit flag value
   auto *UnifiedExitFlagValue =
       new llvm::LoadInst(UnifiedExitFlag, "sle_flag_load", hdrBranch);
 
-  // determine operation based on what boolean value exits the loop
-  llvm::Instruction::BinaryOps operation =
-      getExitConditionValue(CurLoop) ? llvm::Instruction::BinaryOps::Or
-                                     : llvm::Instruction::BinaryOps::And;
+  if (!hdrBranch->isConditional())
+    hdrBranch->setCondition(UnifiedExitFlagValue);
+  else {
+    // determine operation based on what boolean value exits the loop
+    auto operationType = getExitConditionValue(CurLoop)
+                             ? llvm::Instruction::BinaryOps::Or
+                             : llvm::Instruction::BinaryOps::And;
 
-  // attach the new exit flag condition to the current loop header exit branch
-  // condition
-  auto *unifiedCond =
-      llvm::BinaryOperator::Create(operation, hdrBranch->getCondition(),
-                                   UnifiedExitFlagValue, "sle_cond", hdrBranch);
+    // attach the new exit flag condition to
+    // the current loop header exit branch condition
+    auto *unifiedCond = llvm::BinaryOperator::Create(
+        operationType, hdrBranch->getCondition(), UnifiedExitFlagValue,
+        "sle_cond", hdrBranch);
 
-  // replace loop header exit branch condition
-  hdrBranch->setCondition(unifiedCond);
+    hdrBranch->setCondition(unifiedCond);
+  }
 
-  return unifiedCond;
+  assert(hdrBranch->isConditional() &&
+         "Loop header branch must have a condition at this point!");
+  return hdrBranch->getCondition();
 }
 
 llvm::Value *SimplifyLoopExits::addExitSwitchCond(llvm::Loop &CurLoop) {
   auto *loopPreHdr = CurLoop.getLoopPreheader();
-  assert(loopPreHdr);
-
-  auto *term = loopPreHdr->getTerminator();
-  assert(llvm::isa<llvm::BranchInst>(term));
+  assert(loopPreHdr && "Loop is required to have a preheader!");
 
   auto *caseType = llvm::Type::getInt32Ty(loopPreHdr->getContext());
-  auto *caseAlloca =
-      new llvm::AllocaInst(caseType, nullptr, "sle_switch", term);
+  auto *caseAlloca = new llvm::AllocaInst(caseType, nullptr, "sle_switch",
+                                          loopPreHdr->getTerminator());
 
   return caseAlloca;
 }
@@ -284,11 +286,12 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
     }
   }
 
-  for (auto &reg : ledRegisters)
-    llvm::DemoteRegToStack(*reg, false,
-                           CurLoop.getLoopPreheader()->getTerminator());
+  auto *loopPreHdr = CurLoop.getLoopPreheader();
+  assert(loopPreHdr && "Loop is required to have a preheader!");
 
-  assert(CurLoop.getLoopLatch());
+  for (auto &reg : ledRegisters)
+    llvm::DemoteRegToStack(*reg, false, loopPreHdr->getTerminator());
+
   redirectLoopExitsToLatch(CurLoop, exitTargets.begin(), exitTargets.end());
 
   auto et = exitTargets.begin();
@@ -299,10 +302,6 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
     ++et;
   }
 
-  std::error_code ec;
-  llvm::raw_fd_ostream debug_file("dbg.ll", ec, llvm::sys::fs::F_Text);
-  CurLoop.getHeader()->getParent()->print(debug_file);
-
   return unifiedExit;
 }
 
@@ -310,6 +309,9 @@ template <typename ForwardIter>
 void SimplifyLoopExits::redirectLoopExitsToLatch(llvm::Loop &CurLoop,
                                                  ForwardIter exitTargetStart,
                                                  ForwardIter exitTargetEnd) {
+  auto *loopLatch = CurLoop.getLoopLatch();
+  assert(loopLatch && "Loop is required to have a single loop latch!");
+
   typename std::enable_if<
       std::is_same<typename std::iterator_traits<ForwardIter>::value_type,
                    llvm::BasicBlock *>::value,
@@ -328,7 +330,7 @@ void SimplifyLoopExits::redirectLoopExitsToLatch(llvm::Loop &CurLoop,
       for (decltype(numSucc) i = 0; i < numSucc; ++i) {
         auto *succ = brInst->getSuccessor(i);
         if (*etIt == succ)
-          brInst->setSuccessor(i, CurLoop.getLoopLatch());
+          brInst->setSuccessor(i, loopLatch);
       }
     }
 
