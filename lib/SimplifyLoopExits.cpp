@@ -121,13 +121,17 @@ SimplifyLoopExits::getHeaderExit(const llvm::Loop &CurLoop) const {
   return std::make_pair(hdrSuccessor, hdrSuccessorIdx);
 }
 
-bool SimplifyLoopExits::getExitConditionValue(llvm::Loop &CurLoop) const {
-  auto hdrTerm = CurLoop.getHeader()->getTerminator();
+bool SimplifyLoopExits::getExitConditionValue(
+    const llvm::Loop &CurLoop, const llvm::BasicBlock *BB) const {
+  auto term = BB ? BB->getTerminator() : CurLoop.getHeader()->getTerminator();
 
-  if (!hdrTerm->getNumSuccessors())
+  assert(CurLoop.contains(term->getParent()) &&
+         "Basic block must belong to loop!");
+
+  if (!term->getNumSuccessors())
     return false;
 
-  return !CurLoop.contains(hdrTerm->getSuccessor(0));
+  return !CurLoop.contains(term->getSuccessor(0));
 }
 
 loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
@@ -339,9 +343,9 @@ SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
     sleSwitch->addCase(caseVal, *et);
   }
 
-  //std::error_code ec;
-  //llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
-  //CurLoop.getHeader()->getParent()->print(dbg);
+  // std::error_code ec;
+  // llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
+  // CurLoop.getHeader()->getParent()->print(dbg);
 
   return unifiedExit;
 }
