@@ -262,14 +262,31 @@ void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
                                          llvm::Value *ExitSwitchCond,
                                          loop_exit_edge_t &LoopExitEdges) {
   unified_exit_case_type caseVal = 0;
-  auto exitCond = getExitConditionValue(CurLoop);
 
   for (auto &e : LoopExitEdges) {
-    auto *exitVal = setExitFlag(ExitFlag, exitCond, e.first);
+    auto exitCond = getExitConditionValue(CurLoop, e.first);
 
     auto *term = e.first->getTerminator();
     assert(term->getNumSuccessors() <= 2 &&
            "Loop exiting block with more than 2 successors is not supported!");
+
+    auto *br = llvm::dyn_cast<llvm::BranchInst>(term);
+    assert(br && "Loop exiting block must be a branch instruction!");
+
+    auto cond1Val = exitCond ? false : true;
+    auto cond2Val = !cond1Val;
+
+    auto *flagType =
+        llvm::dyn_cast<llvm::AllocaInst>(ExitFlag)->getAllocatedType();
+    auto *cond1 = llvm::ConstantInt::get(flagType, cond1Val);
+    auto *cond2 = llvm::ConstantInt::get(flagType, cond2Val);
+
+    auto *sel =
+        llvm::SelectInst::Create(br->getCondition(), cond1, cond2,
+                                 "sle_exit_cond", e.first->getTerminator());
+
+    auto *flagStore =
+        new llvm::StoreInst(sel, ExitFlag, e.first->getTerminator());
 
     ++caseVal;
     auto *exitSwitchVal = setExitSwitchValue(ExitSwitchCond, caseVal, e.first);
