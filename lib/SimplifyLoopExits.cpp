@@ -179,14 +179,20 @@ llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
   return flagAlloca;
 }
 
-llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *Flag, bool On,
+llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *ExitFlag, bool On,
                                             llvm::Instruction *InsertBefore) {
-  auto *flagType = llvm::dyn_cast<llvm::AllocaInst>(Flag)->getAllocatedType();
+  auto *flagType =
+      llvm::dyn_cast<llvm::AllocaInst>(ExitFlag)->getAllocatedType();
   auto *onVal = llvm::ConstantInt::get(flagType, On);
 
-  auto *flagStore = new llvm::StoreInst(onVal, Flag, InsertBefore);
+  return setExitFlag(ExitFlag, onVal, InsertBefore);
+}
 
-  return flagStore;
+llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *ExitFlag,
+                                            llvm::Value *On,
+                                            llvm::Instruction *InsertBefore) {
+
+  return new llvm::StoreInst(On, ExitFlag, InsertBefore);
 }
 
 llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
@@ -285,8 +291,7 @@ void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
         llvm::SelectInst::Create(br->getCondition(), cond1, cond2,
                                  "sle_exit_cond", e.first->getTerminator());
 
-    auto *flagStore =
-        new llvm::StoreInst(sel, ExitFlag, e.first->getTerminator());
+    auto *flagStore = setExitFlag(ExitFlag, sel, e.first->getTerminator());
 
     ++caseVal;
     auto *exitSwitchVal = setExitSwitchValue(ExitSwitchCond, caseVal, e.first);

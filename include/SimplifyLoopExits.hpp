@@ -48,7 +48,9 @@ public:
   loop_exit_edge_t getEdges(const llvm::Loop &CurLoop);
 
   llvm::Value *addExitFlag(llvm::Loop &CurLoop);
-  llvm::Value *setExitFlag(llvm::Value *Flag, bool On,
+  llvm::Value *setExitFlag(llvm::Value *ExitFlag, bool On,
+                           llvm::Instruction *InsertBefore = nullptr);
+  llvm::Value *setExitFlag(llvm::Value *ExitFlag, llvm::Value *On,
                            llvm::Instruction *InsertBefore = nullptr);
   llvm::Value *attachExitFlag(llvm::Loop &CurLoop,
                               llvm::Value *UnifiedExitFlag = nullptr);
