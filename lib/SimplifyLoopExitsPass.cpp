@@ -105,7 +105,8 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
 
     auto *exitSwitch = sle.createExitSwitchCond(*CurLoop);
     auto *exitSwitchVal = sle.setExitSwitchCond(
-        exitSwitch, 0, CurLoop->getLoopPreheader()->getTerminator());
+        static_cast<SimplifyLoopExits::unified_exit_case_type>(0), exitSwitch,
+        CurLoop->getLoopPreheader()->getTerminator());
 
     auto loopExitEdges = sle.getEdges(*CurLoop);
     sle.attachExitValues(*CurLoop, exitFlag, exitSwitch, loopExitEdges);

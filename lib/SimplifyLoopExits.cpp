@@ -250,22 +250,29 @@ llvm::Value *SimplifyLoopExits::createExitSwitchCond(llvm::Loop &CurLoop) {
 }
 
 llvm::Value *
-SimplifyLoopExits::setExitSwitchCond(llvm::Value *ExitSwitchCond,
-                                     unified_exit_case_type Case,
+SimplifyLoopExits::setExitSwitchCond(unified_exit_case_type Case,
+                                     llvm::Value *ExitSwitchCond,
                                      llvm::Instruction *InsertBefore) {
   auto *caseVal = llvm::ConstantInt::get(
       llvm::IntegerType::get(InsertBefore->getContext(),
                              unified_exit_case_type_bits),
       Case);
-  auto *caseStore = new llvm::StoreInst(caseVal, ExitSwitchCond, InsertBefore);
 
-  return caseStore;
+  return setExitSwitchCond(caseVal, ExitSwitchCond, InsertBefore);
+}
+
+llvm::Value *
+SimplifyLoopExits::setExitSwitchCond(llvm::Value *Case,
+                                     llvm::Value *ExitSwitchCond,
+                                     llvm::Instruction *InsertBefore) {
+  return new llvm::StoreInst(Case, ExitSwitchCond, InsertBefore);
 }
 
 void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
                                          llvm::Value *ExitFlag,
                                          llvm::Value *ExitSwitchCond,
                                          loop_exit_edge_t &LoopExitEdges) {
+  // TODO denote default case value in a better way
   unified_exit_case_type caseVal = 0;
 
   for (auto &e : LoopExitEdges) {
@@ -278,23 +285,35 @@ void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
     auto *br = llvm::dyn_cast<llvm::BranchInst>(term);
     assert(br && "Loop exiting block must be a branch instruction!");
 
-    auto cond1Val = exitCond ? false : true;
-    auto cond2Val = !cond1Val;
+    auto cond1FlagVal = exitCond ? false : true;
+    auto cond2FlagVal = !cond1FlagVal;
 
     auto *flagType =
         llvm::dyn_cast<llvm::AllocaInst>(ExitFlag)->getAllocatedType();
-    auto *cond1 = llvm::ConstantInt::get(flagType, cond1Val);
-    auto *cond2 = llvm::ConstantInt::get(flagType, cond2Val);
+    auto *cond1Flag = llvm::ConstantInt::get(flagType, cond1FlagVal);
+    auto *cond2Flag = llvm::ConstantInt::get(flagType, cond2FlagVal);
 
-    auto *sel =
-        llvm::SelectInst::Create(br->getCondition(), cond1, cond2,
-                                 "sle_exit_cond", e.first->getTerminator());
+    auto *selExitCond = llvm::SelectInst::Create(
+        br->getCondition(), cond1Flag, cond2Flag, "sle_exit_cond", term);
 
-    auto *flagStore = setExitFlag(sel, ExitFlag, e.first->getTerminator());
+    auto *flagStore = setExitFlag(selExitCond, ExitFlag, term);
 
     ++caseVal;
-    auto *exitSwitchVal =
-        setExitSwitchCond(ExitSwitchCond, caseVal, e.first->getTerminator());
+
+    auto cond1CaseVal = exitCond ? caseVal : 0;
+    auto cond2CaseVal = !exitCond ? caseVal : 0;
+
+    auto *cond1Case = llvm::ConstantInt::get(
+        llvm::IntegerType::get(term->getContext(), unified_exit_case_type_bits),
+        cond1CaseVal);
+    auto *cond2Case = llvm::ConstantInt::get(
+        llvm::IntegerType::get(term->getContext(), unified_exit_case_type_bits),
+        cond2CaseVal);
+
+    auto *selSwitchCond = llvm::SelectInst::Create(
+        br->getCondition(), cond1Case, cond2Case, "sle_switch_cond", term);
+
+    setExitSwitchCond(selSwitchCond, ExitSwitchCond, term);
   }
 
   return;
