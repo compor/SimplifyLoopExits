@@ -11,7 +11,7 @@ entry:
 
 loop_cond:                                       ; preds = %if.end, %entry
   %a.0 = phi i32 [ 0, %entry ], [ %inc1, %if.end ]
-  %i.0 = phi i32 [ 100, %entry ], [ %dec, %if.end ]
+  %i.0 = phi i32 [ 10, %entry ], [ %dec, %if.end ]
   %dec = add nsw i32 %i.0, -1
   %tobool = icmp ne i32 %dec, 0
 ; CHECK-LABEL: loop_cond
@@ -21,7 +21,7 @@ loop_cond:                                       ; preds = %if.end, %entry
 
 while.body:                                       ; preds = %loop_cond
   %inc = add nsw i32 %a.0, 1
-  %cmp = icmp eq i32 %inc, 50
+  %cmp = icmp eq i32 %inc, 5
 ; CHECK-LABEL: while.body
 ; CHECK: {{sle_switch.*}}
   br i1 %cmp, label %if.then, label %if.end
