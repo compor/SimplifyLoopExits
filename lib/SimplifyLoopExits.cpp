@@ -161,7 +161,7 @@ loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
   return edges;
 }
 
-llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
+llvm::Value *SimplifyLoopExits::createExitFlag(llvm::Loop &CurLoop) {
   auto *loopPreHdr = CurLoop.getLoopPreheader();
   assert(loopPreHdr && "Loop is required to have a preheader!");
 
@@ -201,7 +201,7 @@ llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
   assert(loopPreHdr && "Loop is required to have a preheader!");
 
   if (!UnifiedExitFlag) {
-    UnifiedExitFlag = addExitFlag(CurLoop);
+    UnifiedExitFlag = createExitFlag(CurLoop);
     setExitFlag(!getExitConditionValue(CurLoop), UnifiedExitFlag,
                 loopPreHdr->getTerminator());
   }
@@ -237,7 +237,7 @@ llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
   return hdrBranch->getCondition();
 }
 
-llvm::Value *SimplifyLoopExits::addExitSwitchCond(llvm::Loop &CurLoop) {
+llvm::Value *SimplifyLoopExits::createExitSwitchCond(llvm::Loop &CurLoop) {
   auto *loopPreHdr = CurLoop.getLoopPreheader();
   assert(loopPreHdr && "Loop is required to have a preheader!");
 
@@ -250,15 +250,14 @@ llvm::Value *SimplifyLoopExits::addExitSwitchCond(llvm::Loop &CurLoop) {
 }
 
 llvm::Value *
-SimplifyLoopExits::setExitSwitchValue(llvm::Value *Val,
-                                      unified_exit_case_type Case,
-                                      llvm::BasicBlock *Insertion) {
+SimplifyLoopExits::setExitSwitchCond(llvm::Value *ExitSwitchCond,
+                                     unified_exit_case_type Case,
+                                     llvm::Instruction *InsertBefore) {
   auto *caseVal = llvm::ConstantInt::get(
-      llvm::IntegerType::get(Insertion->getContext(),
+      llvm::IntegerType::get(InsertBefore->getContext(),
                              unified_exit_case_type_bits),
       Case);
-  auto *caseStore =
-      new llvm::StoreInst(caseVal, Val, Insertion->getTerminator());
+  auto *caseStore = new llvm::StoreInst(caseVal, ExitSwitchCond, InsertBefore);
 
   return caseStore;
 }
@@ -294,7 +293,8 @@ void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
     auto *flagStore = setExitFlag(sel, ExitFlag, e.first->getTerminator());
 
     ++caseVal;
-    auto *exitSwitchVal = setExitSwitchValue(ExitSwitchCond, caseVal, e.first);
+    auto *exitSwitchVal =
+        setExitSwitchCond(ExitSwitchCond, caseVal, e.first->getTerminator());
   }
 
   return;
