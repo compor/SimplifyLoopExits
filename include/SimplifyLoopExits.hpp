@@ -21,6 +21,7 @@ namespace llvm {
 class Value;
 class Loop;
 class BasicBlock;
+class Instruction;
 class raw_ostream;
 } // namespace llvm end
 
@@ -47,8 +48,8 @@ public:
   loop_exit_edge_t getEdges(const llvm::Loop &CurLoop);
 
   llvm::Value *addExitFlag(llvm::Loop &CurLoop);
-  llvm::Value *setExitFlag(llvm::Value *Val, bool On,
-                           llvm::BasicBlock *Insertion);
+  llvm::Value *setExitFlag(llvm::Value *Flag, bool On,
+                           llvm::Instruction *InsertBefore = nullptr);
   llvm::Value *attachExitFlag(llvm::Loop &CurLoop,
                               llvm::Value *UnifiedExitFlag = nullptr);
 

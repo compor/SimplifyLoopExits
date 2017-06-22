@@ -179,12 +179,12 @@ llvm::Value *SimplifyLoopExits::addExitFlag(llvm::Loop &CurLoop) {
   return flagAlloca;
 }
 
-llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *Val, bool On,
-                                            llvm::BasicBlock *Insertion) {
-  auto *flagType = llvm::dyn_cast<llvm::AllocaInst>(Val)->getAllocatedType();
+llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *Flag, bool On,
+                                            llvm::Instruction *InsertBefore) {
+  auto *flagType = llvm::dyn_cast<llvm::AllocaInst>(Flag)->getAllocatedType();
   auto *onVal = llvm::ConstantInt::get(flagType, On);
 
-  auto *flagStore = new llvm::StoreInst(onVal, Val, Insertion->getTerminator());
+  auto *flagStore = new llvm::StoreInst(onVal, Flag, InsertBefore);
 
   return flagStore;
 }
@@ -196,7 +196,8 @@ llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
 
   if (!UnifiedExitFlag) {
     UnifiedExitFlag = addExitFlag(CurLoop);
-    setExitFlag(UnifiedExitFlag, !getExitConditionValue(CurLoop), loopPreHdr);
+    setExitFlag(UnifiedExitFlag, !getExitConditionValue(CurLoop),
+                loopPreHdr->getTerminator());
   }
 
   // get branch instruction to use as instruction insertion point
