@@ -28,16 +28,15 @@ if.then:                                          ; preds = %while.body
 
 if.end:                                           ; preds = %while.body
   %inc1 = add nsw i32 %inc, 1
-  call void @sle_print(i32 %a.0)
-  call void @sle_print(i32 %i.0)
   br label %while.cond
 
 loop_exit_original:                               ; preds = %while.cond
-  call void @sle_print(i32 %a.0)
-  call void @sle_print(i32 %i.0)
   br label %loop_exit_break
 
 loop_exit_break:                                  ; preds = %loop_exit_original, %if.then
+  %a.1 = phi i32 [ %inc, %if.then ], [ %a.0, %loop_exit_original ]
+  call void @sle_print(i32 %a.1)
+  call void @sle_print(i32 %dec)
   ret void
 }
 

@@ -42,7 +42,8 @@ public:
   SimplifyLoopExits() = default;
 
   indexed_basicblock_t getHeaderExit(const llvm::Loop &CurLoop) const;
-  bool getExitConditionValue(const llvm::Loop &CurLoop, const llvm::BasicBlock *BB = nullptr) const;
+  bool getExitConditionValue(const llvm::Loop &CurLoop,
+                             const llvm::BasicBlock *BB = nullptr) const;
   loop_exit_edge_t getEdges(const llvm::Loop &CurLoop);
 
   llvm::Value *addExitFlag(llvm::Loop &CurLoop);
