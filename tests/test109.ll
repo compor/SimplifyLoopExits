@@ -46,17 +46,17 @@ loop_latch:                                       ; preds = %if.end
 
 loop_exit_original:                               ; preds = %loop_cond
   call void @sle_print(i32 %a.0)
-  call void @sle_print(i32 %i.0)
+  call void @sle_print(i32 %dec)
   br label %loop_exit_a
 
 loop_exit_a:                                      ; preds = %loop_exit_original, %if.then
   call void @sle_print(i32 %a.0)
-  call void @sle_print(i32 %i.0)
+  call void @sle_print(i32 %dec)
   br label %loop_exit_b
 
 loop_exit_b:                                      ; preds = %loop_exit_a, %if.then.2
   call void @sle_print(i32 %a.0)
-  call void @sle_print(i32 %i.0)
+  call void @sle_print(i32 %dec)
   ret void
 }
 
