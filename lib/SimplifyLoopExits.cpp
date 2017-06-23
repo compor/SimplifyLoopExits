@@ -140,6 +140,11 @@ void SimplifyLoopExits::transform(void) {
 
   createLoopLatch();
 
+  auto *exitSwitchCond = createExitSwitchCond();
+  unified_exit_case_type initCase = 0;
+  auto *exitSwitchVal =
+      setExitSwitchCond(initCase, exitSwitchCond, m_PreHeader->getTerminator());
+
   return;
 }
 
@@ -204,8 +209,7 @@ loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
 }
 
 llvm::Value *SimplifyLoopExits::createExitFlag() {
-  auto *hdrBranch =
-      llvm::dyn_cast<llvm::BranchInst>(m_Header->getTerminator());
+  auto *hdrBranch = llvm::dyn_cast<llvm::BranchInst>(m_Header->getTerminator());
   assert(hdrBranch && "Loop header terminator must be a branch instruction!");
 
   auto *flagType = hdrBranch->isConditional()
@@ -298,14 +302,11 @@ llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
   return hdrBranch->getCondition();
 }
 
-llvm::Value *SimplifyLoopExits::createExitSwitchCond(llvm::Loop &CurLoop) {
-  auto *loopPreHdr = CurLoop.getLoopPreheader();
-  assert(loopPreHdr && "Loop is required to have a preheader!");
-
-  auto *caseType = llvm::IntegerType::get(loopPreHdr->getContext(),
+llvm::Value *SimplifyLoopExits::createExitSwitchCond() {
+  auto *caseType = llvm::IntegerType::get(m_PreHeader->getContext(),
                                           unified_exit_case_type_bits);
   auto *caseAlloca = new llvm::AllocaInst(caseType, nullptr, "sle_switch",
-                                          loopPreHdr->getTerminator());
+                                          m_PreHeader->getTerminator());
 
   return caseAlloca;
 }

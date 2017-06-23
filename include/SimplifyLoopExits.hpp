@@ -54,19 +54,17 @@ public:
                            llvm::Instruction *InsertBefore = nullptr);
   llvm::Value *setExitFlag(llvm::Value *On, llvm::Value *ExitFlag,
                            llvm::Instruction *InsertBefore = nullptr);
-  llvm::Value *attachExitFlag(llvm::Loop &CurLoop,
-                              llvm::Value *UnifiedExitFlag = nullptr);
 
-  llvm::Value *createLoopHeader(llvm::Loop &CurLoop, llvm::Value *LoopCond,
-                                llvm::BasicBlock *Latch);
-  llvm::BasicBlock *createLoopLatch();
-
-  llvm::Value *createExitSwitchCond(llvm::Loop &CurLoop);
+  llvm::Value *createExitSwitchCond();
   llvm::Value *setExitSwitchCond(unified_exit_case_type Case,
                                  llvm::Value *ExitSwitchCond,
                                  llvm::Instruction *InsertBefore = nullptr);
   llvm::Value *setExitSwitchCond(llvm::Value *Case, llvm::Value *ExitSwitchCond,
                                  llvm::Instruction *InsertBefore = nullptr);
+
+  llvm::Value *createLoopHeader(llvm::Loop &CurLoop, llvm::Value *LoopCond,
+                                llvm::BasicBlock *Latch);
+  llvm::BasicBlock *createLoopLatch();
 
   void attachExitValues(llvm::Loop &CurLoop, llvm::Value *ExitFlag,
                         llvm::Value *ExitSwitchCond,
@@ -75,6 +73,11 @@ public:
   llvm::BasicBlock *attachExitBlock(llvm::Loop &CurLoop,
                                     llvm::Value *ExitSwitchCond,
                                     loop_exit_edge_t &LoopExitEdges);
+
+  //
+
+  llvm::Value *attachExitFlag(llvm::Loop &CurLoop,
+                              llvm::Value *UnifiedExitFlag = nullptr);
 
 private:
   llvm::Loop &m_CurLoop;
