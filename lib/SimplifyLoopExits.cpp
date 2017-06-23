@@ -69,6 +69,25 @@ namespace icsa {
 constexpr auto unified_exit_case_type_bits =
     std::numeric_limits<SimplifyLoopExits::unified_exit_case_type>::digits;
 
+struct RedirectLoopLatchDependentPHIsVisitor
+    : public llvm::InstVisitor<RedirectLoopLatchDependentPHIsVisitor> {
+  llvm::BasicBlock &m_OldLatch, &m_NewLatch;
+
+  RedirectLoopLatchDependentPHIsVisitor(llvm::BasicBlock &OldLatch,
+                                        llvm::BasicBlock &NewLatch)
+      : m_OldLatch(OldLatch), m_NewLatch(NewLatch) {}
+
+  void visitPHI(llvm::PHINode &I) {
+    auto numInc = I.getNumIncomingValues();
+
+    for (decltype(numInc) i = 0; i < numInc; ++i)
+      if (I.getIncomingBlock(i) == &m_OldLatch)
+        I.setIncomingBlock(i, &m_NewLatch);
+
+    return;
+  }
+};
+
 struct LoopExitDependentPHIVisitor
     : public llvm::InstVisitor<LoopExitDependentPHIVisitor> {
   std::set<llvm::PHINode *> m_LoopExitPHINodes;
@@ -193,6 +212,31 @@ llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *On,
                                             llvm::Instruction *InsertBefore) {
 
   return new llvm::StoreInst(On, ExitFlag, InsertBefore);
+}
+
+llvm::Value *SimplifyLoopExits::createLoopHeader(llvm::Loop &CurLoop,
+                                                 llvm::Value *LoopCond,
+                                                 llvm::BasicBlock *Latch) {
+  return nullptr;
+}
+
+llvm::BasicBlock *SimplifyLoopExits::createLoopLatch(llvm::Loop &CurLoop) {
+  auto *loopLatch = CurLoop.getLoopLatch();
+  auto *loopPreHdr = CurLoop.getLoopPreheader();
+  auto *loopHeader = CurLoop.getHeader();
+  auto &curCtx = loopHeader->getContext();
+
+  auto sleLoopLatch =
+      llvm::BasicBlock::Create(curCtx, "sle_latch", loopHeader->getParent());
+
+  auto *sleLatchBr = llvm::BranchInst::Create(loopHeader, sleLoopLatch);
+  auto *latchBr = llvm::dyn_cast<llvm::BranchInst>(loopLatch->getTerminator());
+  latchBr->setSuccessor(0, sleLoopLatch);
+
+  RedirectLoopLatchDependentPHIsVisitor rlldpVisitor{*loopLatch, *sleLoopLatch};
+  rlldpVisitor.visit(loopHeader);
+
+  return sleLoopLatch;
 }
 
 llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
