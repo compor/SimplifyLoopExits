@@ -40,7 +40,9 @@ public:
   using unified_exit_case_type = std::uint32_t;
 
 public:
-  SimplifyLoopExits() = default;
+  SimplifyLoopExits(llvm::Loop &CurLoop);
+
+  void transform(void);
 
   indexed_basicblock_t getHeaderExit(const llvm::Loop &CurLoop) const;
   bool getExitConditionValue(const llvm::Loop &CurLoop,
@@ -75,6 +77,11 @@ public:
                                     loop_exit_edge_t &LoopExitEdges);
 
 private:
+  llvm::Loop &m_CurLoop;
+  llvm::BasicBlock *m_PreHeader;
+  llvm::BasicBlock *m_Header;
+  llvm::BasicBlock *m_Latch;
+
   template <typename ForwardIter>
   void redirectLoopExitsToLatch(llvm::Loop &CurLoop,
                                 ForwardIter exitTargetStart,

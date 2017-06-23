@@ -96,21 +96,23 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
     auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>(CurFunc).getLoopInfo();
     auto *CurLoop = *(LI.begin());
 
-    SimplifyLoopExits sle;
-    auto *exitFlag = sle.createExitFlag(*CurLoop);
-    auto *exitFlagVal =
-        sle.setExitFlag(!sle.getExitConditionValue(*CurLoop), exitFlag,
-                        CurLoop->getLoopPreheader()->getTerminator());
+    SimplifyLoopExits sle{*CurLoop};
+    sle.transform();
 
-    sle.createLoopLatch(*CurLoop);
-    //sle.attachExitFlag(*CurLoop, exitFlag);
+    // auto *exitFlag = sle.createExitFlag(*CurLoop);
+    // auto *exitFlagVal =
+    // sle.setExitFlag(!sle.getExitConditionValue(*CurLoop), exitFlag,
+    // CurLoop->getLoopPreheader()->getTerminator());
 
-    //auto *exitSwitch = sle.createExitSwitchCond(*CurLoop);
-    //auto *exitSwitchVal = sle.setExitSwitchCond(
-        //static_cast<SimplifyLoopExits::unified_exit_case_type>(0), exitSwitch,
-        //CurLoop->getLoopPreheader()->getTerminator());
+    // sle.createLoopLatch(*CurLoop);
+    // sle.attachExitFlag(*CurLoop, exitFlag);
 
-    //auto loopExitEdges = sle.getEdges(*CurLoop);
+    // auto *exitSwitch = sle.createExitSwitchCond(*CurLoop);
+    // auto *exitSwitchVal = sle.setExitSwitchCond(
+    // static_cast<SimplifyLoopExits::unified_exit_case_type>(0), exitSwitch,
+    // CurLoop->getLoopPreheader()->getTerminator());
+
+    // auto loopExitEdges = sle.getEdges(*CurLoop);
     // sle.attachExitValues(*CurLoop, exitFlag, exitSwitch, loopExitEdges);
     // sle.attachExitBlock(*CurLoop, exitSwitch, loopExitEdges);
   }

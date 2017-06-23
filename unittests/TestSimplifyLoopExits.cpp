@@ -152,7 +152,7 @@ public:
         auto *CurLoop = *LI.begin();
         assert(CurLoop && "Loop ptr is invalid");
 
-        SimplifyLoopExits sle;
+        SimplifyLoopExits sle{*CurLoop};
         const auto hdrExit = sle.getHeaderExit(*CurLoop);
         const bool doesHdrExitOnTrue = sle.getExitConditionValue(*CurLoop);
         const auto &loopExitEdges = sle.getEdges(*CurLoop);

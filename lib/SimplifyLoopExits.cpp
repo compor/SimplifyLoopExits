@@ -120,6 +120,29 @@ struct LoopExitDependentPHIVisitor
   }
 };
 
+SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop)
+    : m_CurLoop(CurLoop), m_PreHeader(nullptr), m_Header(nullptr),
+      m_Latch(nullptr) {
+  assert(m_CurLoop.isLoopSimplifyForm() &&
+         "Loop must be in loop simplify/canonical form!");
+
+  m_PreHeader = m_CurLoop.getLoopPreheader();
+  m_Header = m_CurLoop.getHeader();
+  m_Latch = m_CurLoop.getLoopLatch();
+
+  return;
+}
+
+void SimplifyLoopExits::transform(void) {
+  auto *exitFlag = createExitFlag(m_CurLoop);
+  auto *exitFlagVal = setExitFlag(!getExitConditionValue(m_CurLoop), exitFlag,
+                                  m_PreHeader->getTerminator());
+
+  createLoopLatch(m_CurLoop);
+
+  return;
+}
+
 indexed_basicblock_t
 SimplifyLoopExits::getHeaderExit(const llvm::Loop &CurLoop) const {
   llvm::BasicBlock *hdrSuccessor = nullptr;
