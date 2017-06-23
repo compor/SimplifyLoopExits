@@ -141,13 +141,13 @@ void SimplifyLoopExits::transform(void) {
 
   createLoopLatch();
 
-  auto *exitSwitchCond = createExitSwitchCond();
+  auto *exitSwitch = createExitSwitch();
   unified_exit_case_type initCase = 0;
   auto *exitSwitchVal =
-      setExitSwitchCond(initCase, exitSwitchCond, m_PreHeader->getTerminator());
-  auto *sleExit = createUnifiedExit(exitSwitchCond);
+      setExitSwitch(initCase, exitSwitch, m_PreHeader->getTerminator());
+  auto *sleExit = createUnifiedExit(exitSwitch);
 
-  auto oldHeader = createLoopHeader(exitSwitchCond);
+  auto oldHeader = createLoopHeader(exitSwitch);
 
   return;
 }
@@ -307,7 +307,7 @@ llvm::BasicBlock *SimplifyLoopExits::createLoopLatch() {
   return sleLoopLatch;
 }
 
-llvm::Value *SimplifyLoopExits::createExitSwitchCond() {
+llvm::Value *SimplifyLoopExits::createExitSwitch() {
   auto *caseType = llvm::IntegerType::get(m_PreHeader->getContext(),
                                           unified_exit_case_type_bits);
   auto *caseAlloca = new llvm::AllocaInst(caseType, nullptr, "sle_switch",
@@ -316,28 +316,26 @@ llvm::Value *SimplifyLoopExits::createExitSwitchCond() {
   return caseAlloca;
 }
 
-llvm::Value *
-SimplifyLoopExits::setExitSwitchCond(unified_exit_case_type Case,
-                                     llvm::Value *ExitSwitchCond,
-                                     llvm::Instruction *InsertBefore) {
+llvm::Value *SimplifyLoopExits::setExitSwitch(unified_exit_case_type Case,
+                                              llvm::Value *ExitSwitch,
+                                              llvm::Instruction *InsertBefore) {
   auto *caseVal = llvm::ConstantInt::get(
       llvm::IntegerType::get(InsertBefore->getContext(),
                              unified_exit_case_type_bits),
       Case);
 
-  return setExitSwitchCond(caseVal, ExitSwitchCond, InsertBefore);
+  return setExitSwitch(caseVal, ExitSwitch, InsertBefore);
 }
 
-llvm::Value *
-SimplifyLoopExits::setExitSwitchCond(llvm::Value *Case,
-                                     llvm::Value *ExitSwitchCond,
-                                     llvm::Instruction *InsertBefore) {
-  return new llvm::StoreInst(Case, ExitSwitchCond, InsertBefore);
+llvm::Value *SimplifyLoopExits::setExitSwitch(llvm::Value *Case,
+                                              llvm::Value *ExitSwitch,
+                                              llvm::Instruction *InsertBefore) {
+  return new llvm::StoreInst(Case, ExitSwitch, InsertBefore);
 }
 
 void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
                                          llvm::Value *ExitFlag,
-                                         llvm::Value *ExitSwitchCond,
+                                         llvm::Value *ExitSwitch,
                                          loop_exit_edge_t &LoopExitEdges) {
   // TODO denote default case value in a better way
   unified_exit_case_type caseVal = 0;
@@ -380,7 +378,7 @@ void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
     auto *selSwitchCond = llvm::SelectInst::Create(
         br->getCondition(), cond1Case, cond2Case, "sle_switch_cond", term);
 
-    setExitSwitchCond(selSwitchCond, ExitSwitchCond, term);
+    setExitSwitch(selSwitchCond, ExitSwitch, term);
   }
 
   return;

@@ -58,12 +58,12 @@ public:
   llvm::Value *setExitFlag(llvm::Value *On, llvm::Value *ExitFlag,
                            llvm::Instruction *InsertBefore = nullptr);
 
-  llvm::Value *createExitSwitchCond();
-  llvm::Value *setExitSwitchCond(unified_exit_case_type Case,
-                                 llvm::Value *ExitSwitchCond,
-                                 llvm::Instruction *InsertBefore = nullptr);
-  llvm::Value *setExitSwitchCond(llvm::Value *Case, llvm::Value *ExitSwitchCond,
-                                 llvm::Instruction *InsertBefore = nullptr);
+  llvm::Value *createExitSwitch();
+  llvm::Value *setExitSwitch(unified_exit_case_type Case,
+                             llvm::Value *ExitSwitch,
+                             llvm::Instruction *InsertBefore = nullptr);
+  llvm::Value *setExitSwitch(llvm::Value *Case, llvm::Value *ExitSwitch,
+                             llvm::Instruction *InsertBefore = nullptr);
 
   llvm::BasicBlock *createUnifiedExit(llvm::Value *ExitSwitch);
   llvm::BasicBlock *createLoopHeader(llvm::Value *ExitFlag);
