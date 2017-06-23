@@ -49,7 +49,7 @@ public:
                              const llvm::BasicBlock *BB = nullptr) const;
   loop_exit_edge_t getEdges(const llvm::Loop &CurLoop);
 
-  llvm::Value *createExitFlag(llvm::Loop &CurLoop);
+  llvm::Value *createExitFlag();
   llvm::Value *setExitFlag(bool On, llvm::Value *ExitFlag,
                            llvm::Instruction *InsertBefore = nullptr);
   llvm::Value *setExitFlag(llvm::Value *On, llvm::Value *ExitFlag,
@@ -59,7 +59,7 @@ public:
 
   llvm::Value *createLoopHeader(llvm::Loop &CurLoop, llvm::Value *LoopCond,
                                 llvm::BasicBlock *Latch);
-  llvm::BasicBlock *createLoopLatch(llvm::Loop &CurLoop);
+  llvm::BasicBlock *createLoopLatch();
 
   llvm::Value *createExitSwitchCond(llvm::Loop &CurLoop);
   llvm::Value *setExitSwitchCond(unified_exit_case_type Case,

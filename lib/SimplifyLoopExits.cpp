@@ -134,11 +134,11 @@ SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop)
 }
 
 void SimplifyLoopExits::transform(void) {
-  auto *exitFlag = createExitFlag(m_CurLoop);
+  auto *exitFlag = createExitFlag();
   auto *exitFlagVal = setExitFlag(!getExitConditionValue(m_CurLoop), exitFlag,
                                   m_PreHeader->getTerminator());
 
-  createLoopLatch(m_CurLoop);
+  createLoopLatch();
 
   return;
 }
@@ -203,12 +203,9 @@ loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
   return edges;
 }
 
-llvm::Value *SimplifyLoopExits::createExitFlag(llvm::Loop &CurLoop) {
-  auto *loopPreHdr = CurLoop.getLoopPreheader();
-  assert(loopPreHdr && "Loop is required to have a preheader!");
-
+llvm::Value *SimplifyLoopExits::createExitFlag() {
   auto *hdrBranch =
-      llvm::dyn_cast<llvm::BranchInst>(CurLoop.getHeader()->getTerminator());
+      llvm::dyn_cast<llvm::BranchInst>(m_Header->getTerminator());
   assert(hdrBranch && "Loop header terminator must be a branch instruction!");
 
   auto *flagType = hdrBranch->isConditional()
@@ -216,7 +213,7 @@ llvm::Value *SimplifyLoopExits::createExitFlag(llvm::Loop &CurLoop) {
                        : llvm::IntegerType::get(hdrBranch->getContext(),
                                                 unified_exit_case_type_bits);
   auto *flagAlloca = new llvm::AllocaInst(flagType, nullptr, "sle_flag",
-                                          loopPreHdr->getTerminator());
+                                          m_PreHeader->getTerminator());
 
   return flagAlloca;
 }
@@ -243,21 +240,18 @@ llvm::Value *SimplifyLoopExits::createLoopHeader(llvm::Loop &CurLoop,
   return nullptr;
 }
 
-llvm::BasicBlock *SimplifyLoopExits::createLoopLatch(llvm::Loop &CurLoop) {
-  auto *loopLatch = CurLoop.getLoopLatch();
-  auto *loopPreHdr = CurLoop.getLoopPreheader();
-  auto *loopHeader = CurLoop.getHeader();
-  auto &curCtx = loopHeader->getContext();
+llvm::BasicBlock *SimplifyLoopExits::createLoopLatch() {
+  auto &curCtx = m_Header->getContext();
 
   auto sleLoopLatch =
-      llvm::BasicBlock::Create(curCtx, "sle_latch", loopHeader->getParent());
+      llvm::BasicBlock::Create(curCtx, "sle_latch", m_Header->getParent());
 
-  auto *sleLatchBr = llvm::BranchInst::Create(loopHeader, sleLoopLatch);
-  auto *latchBr = llvm::dyn_cast<llvm::BranchInst>(loopLatch->getTerminator());
+  auto *sleLatchBr = llvm::BranchInst::Create(m_Header, sleLoopLatch);
+  auto *latchBr = llvm::dyn_cast<llvm::BranchInst>(m_Latch->getTerminator());
   latchBr->setSuccessor(0, sleLoopLatch);
 
-  RedirectLoopLatchDependentPHIsVisitor rlldpVisitor{*loopLatch, *sleLoopLatch};
-  rlldpVisitor.visit(loopHeader);
+  RedirectLoopLatchDependentPHIsVisitor rlldpVisitor{*m_Latch, *sleLoopLatch};
+  rlldpVisitor.visit(m_Header);
 
   return sleLoopLatch;
 }
@@ -268,7 +262,7 @@ llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
   assert(loopPreHdr && "Loop is required to have a preheader!");
 
   if (!UnifiedExitFlag) {
-    UnifiedExitFlag = createExitFlag(CurLoop);
+    UnifiedExitFlag = createExitFlag();
     setExitFlag(!getExitConditionValue(CurLoop), UnifiedExitFlag,
                 loopPreHdr->getTerminator());
   }
