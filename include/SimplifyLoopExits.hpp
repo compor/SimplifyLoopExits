@@ -5,6 +5,9 @@
 #ifndef SIMPLIFYLOOPEXITS_HPP
 #define SIMPLIFYLOOPEXITS_HPP
 
+#include "llvm/ADT/SmallVector.h"
+// using llvm::SmallVector
+
 #include <cstdint>
 // using std::int32_t
 
@@ -44,7 +47,7 @@ public:
 
   void transform(void);
 
-  indexed_basicblock_t getHeaderExit(const llvm::Loop &CurLoop) const;
+  const llvm::BasicBlock *getHeaderExit() const;
   bool getExitConditionValue(const llvm::Loop &CurLoop,
                              const llvm::BasicBlock *BB = nullptr) const;
   loop_exit_edge_t getEdges(const llvm::Loop &CurLoop);
@@ -62,28 +65,23 @@ public:
   llvm::Value *setExitSwitchCond(llvm::Value *Case, llvm::Value *ExitSwitchCond,
                                  llvm::Instruction *InsertBefore = nullptr);
 
-  llvm::Value *createLoopHeader(llvm::Loop &CurLoop, llvm::Value *LoopCond,
-                                llvm::BasicBlock *Latch);
+  llvm::BasicBlock *createUnifiedExit(llvm::Value *ExitSwitch);
+  llvm::BasicBlock *createLoopHeader(llvm::Value *ExitFlag);
   llvm::BasicBlock *createLoopLatch();
 
   void attachExitValues(llvm::Loop &CurLoop, llvm::Value *ExitFlag,
                         llvm::Value *ExitSwitchCond,
                         loop_exit_edge_t &LoopExitEdges);
 
-  llvm::BasicBlock *attachExitBlock(llvm::Loop &CurLoop,
-                                    llvm::Value *ExitSwitchCond,
-                                    loop_exit_edge_t &LoopExitEdges);
-
-  //
-
-  llvm::Value *attachExitFlag(llvm::Loop &CurLoop,
-                              llvm::Value *UnifiedExitFlag = nullptr);
-
 private:
   llvm::Loop &m_CurLoop;
   llvm::BasicBlock *m_PreHeader;
   llvm::BasicBlock *m_Header;
   llvm::BasicBlock *m_Latch;
+  // TODO use alias for vector element type
+  llvm::SmallVector<
+      std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>, 16>
+      m_Edges;
 
   template <typename ForwardIter>
   void redirectLoopExitsToLatch(llvm::Loop &CurLoop,

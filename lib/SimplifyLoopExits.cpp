@@ -4,9 +4,6 @@
 
 #include "SimplifyLoopExits.hpp"
 
-#include "llvm/ADT/SmallVector.h"
-// using llvm::SmallVector
-
 #include "llvm/IR/CFG.h"
 // using llvm::succ_begin
 // using llvm::succ_end
@@ -40,6 +37,9 @@
 
 #include "llvm/Transforms/Utils/Local.h"
 // using llvm::DemoteRegToStack
+
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+// using llvm::SplitBlock
 
 #include "llvm/Support/raw_ostream.h"
 // using llvm::raw_ostream
@@ -129,6 +129,7 @@ SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop)
   m_PreHeader = m_CurLoop.getLoopPreheader();
   m_Header = m_CurLoop.getHeader();
   m_Latch = m_CurLoop.getLoopLatch();
+  m_CurLoop.getExitEdges(m_Edges);
 
   return;
 }
@@ -144,28 +145,19 @@ void SimplifyLoopExits::transform(void) {
   unified_exit_case_type initCase = 0;
   auto *exitSwitchVal =
       setExitSwitchCond(initCase, exitSwitchCond, m_PreHeader->getTerminator());
+  auto *sleExit = createUnifiedExit(exitSwitchCond);
+
+  auto oldHeader = createLoopHeader(exitSwitchCond);
 
   return;
 }
 
-indexed_basicblock_t
-SimplifyLoopExits::getHeaderExit(const llvm::Loop &CurLoop) const {
-  llvm::BasicBlock *hdrSuccessor = nullptr;
-  indexed_basicblock_t::second_type hdrSuccessorIdx = 0;
+const llvm::BasicBlock *SimplifyLoopExits::getHeaderExit() const {
+  for (auto &e : m_Edges)
+    if (m_Header == e.first)
+      return e.second;
 
-  auto hdrTerm = CurLoop.getHeader()->getTerminator();
-  auto numHdrSucc = hdrTerm->getNumSuccessors();
-
-  for (auto i = 0u; i < numHdrSucc; ++i) {
-    auto *succ = hdrTerm->getSuccessor(i);
-    if (!CurLoop.contains(succ)) {
-      hdrSuccessor = succ;
-      hdrSuccessorIdx = i;
-      break;
-    }
-  }
-
-  return std::make_pair(hdrSuccessor, hdrSuccessorIdx);
+  return nullptr;
 }
 
 bool SimplifyLoopExits::getExitConditionValue(
@@ -238,9 +230,64 @@ llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *On,
   return new llvm::StoreInst(On, ExitFlag, InsertBefore);
 }
 
-llvm::Value *SimplifyLoopExits::createLoopHeader(llvm::Loop &CurLoop,
-                                                 llvm::Value *LoopCond,
-                                                 llvm::BasicBlock *Latch) {
+llvm::BasicBlock *
+SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
+  auto &curCtx = m_Header->getContext();
+  auto *hdrExit = const_cast<llvm::BasicBlock *>(getHeaderExit());
+
+  auto *unifiedExit =
+      llvm::BasicBlock::Create(curCtx, "sle_exit", m_PreHeader->getParent());
+
+  auto *exitSwitchVal =
+      new llvm::LoadInst(ExitSwitch, "sle_switch", unifiedExit);
+
+  auto *sleBr = llvm::SwitchInst::Create(exitSwitchVal, hdrExit, m_Edges.size(),
+                                         unifiedExit);
+
+  // LoopExitDependentPHIVisitor ledPHIVisitor{CurLoop, exitTargets};
+  // ledPHIVisitor.visit(CurLoop.getHeader()->getParent());
+
+  // std::set<llvm::Instruction *> ledRegisters;
+
+  // for (auto &phi : ledPHIVisitor.m_LoopExitPHINodes) {
+  // for (auto &e : phi->incoming_values()) {
+  // auto *reg = llvm::dyn_cast<llvm::Instruction>(e);
+  // if (reg && CurLoop.contains(reg->getParent()))
+  // ledRegisters.insert(reg);
+  //}
+  //}
+
+  // for (auto &reg : ledRegisters)
+  // llvm::DemoteRegToStack(*reg, false, loopPreHdr->getTerminator());
+
+  // redirectLoopExitsToLatch(CurLoop, exitTargets.begin(), exitTargets.end());
+
+  // TODO define as default plus 1
+  unified_exit_case_type caseIdx = 1;
+
+  for (auto ei = m_Edges.begin(), ee = m_Edges.end(); ei != ee; ++ei) {
+    if (ei->second == hdrExit)
+      continue;
+
+    auto *caseVal = llvm::ConstantInt::get(
+        llvm::IntegerType::get(curCtx, unified_exit_case_type_bits), caseIdx++);
+    sleBr->addCase(caseVal, const_cast<llvm::BasicBlock *>(ei->second));
+  }
+
+  return unifiedExit;
+}
+
+llvm::BasicBlock *SimplifyLoopExits::createLoopHeader(llvm::Value *ExitFlag) {
+  auto *splitPt = m_Header->getFirstNonPHI();
+  m_Header->setName("sle_header");
+
+  // TODO update loopinfo and dominance information
+  auto *oldHeader = llvm::SplitBlock(m_Header, splitPt, nullptr, nullptr);
+  oldHeader->setName("old_header");
+
+  auto *exitFlagVal =
+      new llvm::LoadInst(ExitFlag, "sle_cond", m_Header->getTerminator());
+
   return nullptr;
 }
 
@@ -258,48 +305,6 @@ llvm::BasicBlock *SimplifyLoopExits::createLoopLatch() {
   rlldpVisitor.visit(m_Header);
 
   return sleLoopLatch;
-}
-
-llvm::Value *SimplifyLoopExits::attachExitFlag(llvm::Loop &CurLoop,
-                                               llvm::Value *UnifiedExitFlag) {
-  auto *loopPreHdr = CurLoop.getLoopPreheader();
-  assert(loopPreHdr && "Loop is required to have a preheader!");
-
-  if (!UnifiedExitFlag) {
-    UnifiedExitFlag = createExitFlag();
-    setExitFlag(!getExitConditionValue(CurLoop), UnifiedExitFlag,
-                loopPreHdr->getTerminator());
-  }
-
-  // get branch instruction to use as instruction insertion point
-  auto *hdrBranch =
-      llvm::dyn_cast<llvm::BranchInst>(CurLoop.getHeader()->getTerminator());
-  assert(hdrBranch && "Loop header terminator must be a branch instruction!");
-
-  // load unified exit flag value
-  auto *UnifiedExitFlagValue =
-      new llvm::LoadInst(UnifiedExitFlag, "sle_flag_load", hdrBranch);
-
-  if (!hdrBranch->isConditional())
-    hdrBranch->setCondition(UnifiedExitFlagValue);
-  else {
-    // determine operation based on what boolean value exits the loop
-    auto operationType = getExitConditionValue(CurLoop)
-                             ? llvm::Instruction::BinaryOps::Or
-                             : llvm::Instruction::BinaryOps::And;
-
-    // attach the new exit flag condition to
-    // the current loop header exit branch condition
-    auto *unifiedCond = llvm::BinaryOperator::Create(
-        operationType, hdrBranch->getCondition(), UnifiedExitFlagValue,
-        "sle_cond", hdrBranch);
-
-    hdrBranch->setCondition(unifiedCond);
-  }
-
-  assert(hdrBranch->isConditional() &&
-         "Loop header branch must have a condition at this point!");
-  return hdrBranch->getCondition();
 }
 
 llvm::Value *SimplifyLoopExits::createExitSwitchCond() {
@@ -379,79 +384,6 @@ void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
   }
 
   return;
-}
-
-llvm::BasicBlock *
-SimplifyLoopExits::attachExitBlock(llvm::Loop &CurLoop,
-                                   llvm::Value *ExitSwitchCond,
-                                   loop_exit_edge_t &LoopExitEdges) {
-  // get header exit landing
-  // TODO handle headers with no exits
-  auto hdrExit = getHeaderExit(CurLoop);
-
-  auto *curFunc = hdrExit.first->getParent();
-  auto &curContext = curFunc->getContext();
-
-  // create unified exit and place as current header exit's predecessor
-  auto *unifiedExit =
-      llvm::BasicBlock::Create(curContext, "sle_exit", curFunc, hdrExit.first);
-
-  // set loop header exit successor to the new block
-  auto hdrTerm = CurLoop.getHeader()->getTerminator();
-  hdrTerm->setSuccessor(hdrExit.second, unifiedExit);
-
-  auto *exitSwitchCondVal =
-      new llvm::LoadInst(ExitSwitchCond, "sle_switch_cond_load", unifiedExit);
-  auto *sleSwitch = llvm::SwitchInst::Create(exitSwitchCondVal, hdrExit.first,
-                                             LoopExitEdges.size(), unifiedExit);
-
-  // this loop might be unnecessary if each loop exiting block is always
-  // matched to a single exit block
-  // furthermore, this might also mean that the loop exit target can be a simple
-  // basic block pointer instead of a collection them, which translates to some
-  // sort of a data structure
-  loop_exit_target_t exitTargets;
-  for (auto &e : LoopExitEdges)
-    for (auto &t : e.second)
-      exitTargets.insert(t);
-
-  LoopExitDependentPHIVisitor ledPHIVisitor{CurLoop, exitTargets};
-  ledPHIVisitor.visit(CurLoop.getHeader()->getParent());
-
-  std::set<llvm::Instruction *> ledRegisters;
-
-  for (auto &phi : ledPHIVisitor.m_LoopExitPHINodes) {
-    for (auto &e : phi->incoming_values()) {
-      auto *reg = llvm::dyn_cast<llvm::Instruction>(e);
-      if (reg && CurLoop.contains(reg->getParent()))
-        ledRegisters.insert(reg);
-    }
-  }
-
-  auto *loopPreHdr = CurLoop.getLoopPreheader();
-  assert(loopPreHdr && "Loop is required to have a preheader!");
-
-  for (auto &reg : ledRegisters)
-    llvm::DemoteRegToStack(*reg, false, loopPreHdr->getTerminator());
-
-  redirectLoopExitsToLatch(CurLoop, exitTargets.begin(), exitTargets.end());
-
-  unified_exit_case_type caseIdx = 1;
-  auto et = exitTargets.begin();
-
-  for (; caseIdx <= exitTargets.size(); ++caseIdx, ++et) {
-    auto *caseVal = llvm::ConstantInt::get(
-        llvm::IntegerType::get(CurLoop.getHeader()->getContext(),
-                               unified_exit_case_type_bits),
-        caseIdx);
-    sleSwitch->addCase(caseVal, *et);
-  }
-
-  // std::error_code ec;
-  // llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
-  // CurLoop.getHeader()->getParent()->print(dbg);
-
-  return unifiedExit;
 }
 
 // private methods
