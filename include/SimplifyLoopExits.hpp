@@ -23,6 +23,7 @@
 namespace llvm {
 class Value;
 class Loop;
+class LoopInfo;
 class BasicBlock;
 class Instruction;
 class raw_ostream;
@@ -43,7 +44,7 @@ public:
   using unified_exit_case_type = std::uint32_t;
 
 public:
-  SimplifyLoopExits(llvm::Loop &CurLoop);
+  SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI);
 
   void transform(void);
 
@@ -66,7 +67,8 @@ public:
                              llvm::Instruction *InsertBefore = nullptr);
 
   llvm::BasicBlock *createUnifiedExit(llvm::Value *ExitSwitch);
-  llvm::BasicBlock *createLoopHeader(llvm::Value *ExitFlag);
+  llvm::BasicBlock *createLoopHeader(llvm::Value *ExitFlag,
+                                     llvm::BasicBlock *UnifiedExit = nullptr);
   llvm::BasicBlock *createLoopLatch();
 
   void attachExitValues(llvm::Loop &CurLoop, llvm::Value *ExitFlag,
@@ -75,6 +77,7 @@ public:
 
 private:
   llvm::Loop &m_CurLoop;
+  llvm::LoopInfo &m_LI;
   llvm::BasicBlock *m_PreHeader;
   llvm::BasicBlock *m_Header;
   llvm::BasicBlock *m_Latch;

@@ -96,7 +96,7 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
     auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>(CurFunc).getLoopInfo();
     auto *CurLoop = *(LI.begin());
 
-    SimplifyLoopExits sle{*CurLoop};
+    SimplifyLoopExits sle{*CurLoop, LI};
     sle.transform();
 
     // auto *exitFlag = sle.createExitFlag(*CurLoop);

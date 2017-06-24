@@ -51,9 +51,6 @@
 // using std::enable_if
 // using std::is_same
 
-#include <set>
-// using std::set
-
 #include <limits>
 // using std::numeric_limits
 
@@ -88,40 +85,23 @@ struct RedirectLoopLatchDependentPHIsVisitor
   }
 };
 
-struct LoopExitDependentPHIVisitor
-    : public llvm::InstVisitor<LoopExitDependentPHIVisitor> {
-  std::set<llvm::PHINode *> m_LoopExitPHINodes;
-  const llvm::Loop &m_CurLoop;
-  loop_exit_target_t m_LoopExitTargets;
+void DetectGeneratedValuesVisitor(const std::set<llvm::BasicBlock *> &Blocks,
+                                  std::set<llvm::Instruction *> &Generated) {
+  for (auto &bb : Blocks)
+    for (auto &inst : *bb)
+      for (auto *user : inst.users()) {
+        auto *uinst = llvm::dyn_cast<llvm::Instruction>(user);
+        if (uinst && Blocks.end() == Blocks.find(uinst->getParent())) {
+          Generated.insert(&inst);
+          break;
+        }
+      }
 
-  LoopExitDependentPHIVisitor(const llvm::Loop &CurLoop,
-                              const loop_exit_target_t &LoopExitTargets)
-      : m_CurLoop(CurLoop), m_LoopExitTargets(LoopExitTargets) {
-    for (auto bi = llvm::succ_begin(CurLoop.getHeader()),
-              be = llvm::succ_end(CurLoop.getHeader());
-         bi != be; ++bi)
-      if (!m_CurLoop.contains(*bi))
-        m_LoopExitTargets.insert(*bi);
+  return;
+}
 
-    return;
-  }
-
-  void visitPHI(llvm::PHINode &I) {
-    auto numInc = I.getNumIncomingValues();
-
-    for (decltype(numInc) i = 0; i < numInc; ++i) {
-      auto *bb = I.getIncomingBlock(i);
-      if (!m_CurLoop.contains(bb) &&
-          m_LoopExitTargets.find(bb) != m_LoopExitTargets.end())
-        m_LoopExitPHINodes.insert(&I);
-    }
-
-    return;
-  }
-};
-
-SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop)
-    : m_CurLoop(CurLoop), m_PreHeader(nullptr), m_Header(nullptr),
+SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI)
+    : m_CurLoop(CurLoop), m_LI(LI), m_PreHeader(nullptr), m_Header(nullptr),
       m_Latch(nullptr) {
   assert(m_CurLoop.isLoopSimplifyForm() &&
          "Loop must be in loop simplify/canonical form!");
@@ -147,7 +127,11 @@ void SimplifyLoopExits::transform(void) {
       setExitSwitch(initCase, exitSwitch, m_PreHeader->getTerminator());
   auto *sleExit = createUnifiedExit(exitSwitch);
 
-  auto oldHeader = createLoopHeader(exitSwitch);
+  auto oldHeader = createLoopHeader(exitFlag, sleExit);
+
+  std::error_code ec;
+  llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
+  m_Header->getParent()->print(dbg);
 
   return;
 }
@@ -244,23 +228,25 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   auto *sleBr = llvm::SwitchInst::Create(exitSwitchVal, hdrExit, m_Edges.size(),
                                          unifiedExit);
 
-  // LoopExitDependentPHIVisitor ledPHIVisitor{CurLoop, exitTargets};
-  // ledPHIVisitor.visit(CurLoop.getHeader()->getParent());
+  std::set<llvm::BasicBlock *> exits;
+  for (auto &e : m_Edges)
+    exits.insert(const_cast<llvm::BasicBlock *>(e.second));
 
-  // std::set<llvm::Instruction *> ledRegisters;
+  std::set<llvm::Instruction *> generated;
+  std::set<llvm::BasicBlock *> blocks(m_CurLoop.getBlocks().begin(),
+                                      m_CurLoop.getBlocks().end());
+  DetectGeneratedValuesVisitor(blocks, generated);
 
-  // for (auto &phi : ledPHIVisitor.m_LoopExitPHINodes) {
-  // for (auto &e : phi->incoming_values()) {
-  // auto *reg = llvm::dyn_cast<llvm::Instruction>(e);
-  // if (reg && CurLoop.contains(reg->getParent()))
-  // ledRegisters.insert(reg);
-  //}
-  //}
+  // remove header phi because they are preserved
+  for (auto &e : *m_Header) {
+    auto *phi = llvm::dyn_cast<llvm::PHINode>(&e);
+    if (!phi)
+      break;
+    generated.erase(phi);
+  }
 
-  // for (auto &reg : ledRegisters)
-  // llvm::DemoteRegToStack(*reg, false, loopPreHdr->getTerminator());
-
-  // redirectLoopExitsToLatch(CurLoop, exitTargets.begin(), exitTargets.end());
+  for (auto &e : generated)
+    llvm::DemoteRegToStack(*e, false, m_PreHeader->getTerminator());
 
   // TODO define as default plus 1
   unified_exit_case_type caseIdx = 1;
@@ -277,18 +263,28 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   return unifiedExit;
 }
 
-llvm::BasicBlock *SimplifyLoopExits::createLoopHeader(llvm::Value *ExitFlag) {
+llvm::BasicBlock *
+SimplifyLoopExits::createLoopHeader(llvm::Value *ExitFlag,
+                                    llvm::BasicBlock *UnifiedExit) {
   auto *splitPt = m_Header->getFirstNonPHI();
   m_Header->setName("sle_header");
 
-  // TODO update loopinfo and dominance information
-  auto *oldHeader = llvm::SplitBlock(m_Header, splitPt, nullptr, nullptr);
+  // TODO update dominance information
+  auto *oldHeader = llvm::SplitBlock(m_Header, splitPt, nullptr, &m_LI);
   oldHeader->setName("old_header");
 
   auto *exitFlagVal =
-      new llvm::LoadInst(ExitFlag, "sle_cond", m_Header->getTerminator());
+      new llvm::LoadInst(ExitFlag, "sle_flag", m_Header->getTerminator());
 
-  return nullptr;
+  if (UnifiedExit) {
+    auto *hdrBr = llvm::BranchInst::Create(oldHeader, UnifiedExit, exitFlagVal,
+                                           m_Header->getTerminator());
+    m_Header->getTerminator()->eraseFromParent();
+
+    m_CurLoop.addBasicBlockToLoop(UnifiedExit, m_LI);
+  }
+
+  return m_Header;
 }
 
 llvm::BasicBlock *SimplifyLoopExits::createLoopLatch() {
@@ -303,6 +299,8 @@ llvm::BasicBlock *SimplifyLoopExits::createLoopLatch() {
 
   RedirectLoopLatchDependentPHIsVisitor rlldpVisitor{*m_Latch, *sleLoopLatch};
   rlldpVisitor.visit(m_Header);
+
+  m_CurLoop.addBasicBlockToLoop(sleLoopLatch, m_LI);
 
   return sleLoopLatch;
 }
