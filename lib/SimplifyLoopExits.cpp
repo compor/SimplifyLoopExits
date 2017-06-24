@@ -119,7 +119,7 @@ void SimplifyLoopExits::transform(void) {
   auto *exitFlagVal = setExitFlag(!getExitConditionValue(m_CurLoop), exitFlag,
                                   m_PreHeader->getTerminator());
 
-  createLoopLatch();
+  createLatch();
 
   auto *exitSwitch = createExitSwitch();
   unified_exit_case_type initCase = 0;
@@ -127,7 +127,7 @@ void SimplifyLoopExits::transform(void) {
       setExitSwitch(initCase, exitSwitch, m_PreHeader->getTerminator());
   auto *sleExit = createUnifiedExit(exitSwitch);
 
-  auto oldHeader = createLoopHeader(exitFlag, sleExit);
+  auto oldHeader = createHeader(exitFlag, sleExit);
 
   std::error_code ec;
   llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
@@ -264,7 +264,7 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
 }
 
 llvm::BasicBlock *
-SimplifyLoopExits::createLoopHeader(llvm::Value *ExitFlag,
+SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
                                     llvm::BasicBlock *UnifiedExit) {
   auto *splitPt = m_Header->getFirstNonPHI();
   m_Header->setName("sle_header");
@@ -287,7 +287,7 @@ SimplifyLoopExits::createLoopHeader(llvm::Value *ExitFlag,
   return m_Header;
 }
 
-llvm::BasicBlock *SimplifyLoopExits::createLoopLatch() {
+llvm::BasicBlock *SimplifyLoopExits::createLatch() {
   auto &curCtx = m_Header->getContext();
 
   auto sleLoopLatch =

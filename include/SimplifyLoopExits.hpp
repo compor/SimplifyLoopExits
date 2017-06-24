@@ -67,9 +67,9 @@ public:
                              llvm::Instruction *InsertBefore = nullptr);
 
   llvm::BasicBlock *createUnifiedExit(llvm::Value *ExitSwitch);
-  llvm::BasicBlock *createLoopHeader(llvm::Value *ExitFlag,
+  llvm::BasicBlock *createHeader(llvm::Value *ExitFlag,
                                      llvm::BasicBlock *UnifiedExit = nullptr);
-  llvm::BasicBlock *createLoopLatch();
+  llvm::BasicBlock *createLatch();
 
   void attachExitValues(llvm::Loop &CurLoop, llvm::Value *ExitFlag,
                         llvm::Value *ExitSwitchCond,
