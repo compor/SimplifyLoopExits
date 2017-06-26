@@ -129,7 +129,7 @@ void SimplifyLoopExits::transform(void) {
 
   auto oldHeader = createHeader(exitFlag, sleExit);
   attachExitValues(exitFlag, exitSwitch);
-  //redirectExitsToLatch();
+  // redirectExitsToLatch();
 
   if (m_DT)
     m_DT->print(llvm::outs());
@@ -235,6 +235,10 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
     auto *hdrBr = llvm::BranchInst::Create(
         m_OldHeader, UnifiedExit, exitFlagVal, m_Header->getTerminator());
     m_Header->getTerminator()->eraseFromParent();
+
+    if (m_DT) {
+      m_DT->addNewBlock(UnifiedExit, m_Header);
+    }
   }
 
   updateExitEdges();
@@ -259,7 +263,7 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
 
   // update dominance info
   if (m_DT) {
-    auto *latchNode = m_DT->addNewBlock(sleLatch, (*m_DT)[m_Latch]->getBlock());
+    auto *latchNode = m_DT->addNewBlock(sleLatch, m_Latch);
 
     // move children of old latch to new
     llvm::SmallVector<llvm::DomTreeNode *, 6> children;
