@@ -31,11 +31,8 @@ class raw_ostream;
 
 using indexed_basicblock_t = std::pair<llvm::BasicBlock *, unsigned>;
 
-using loop_exit_target_t = std::set<llvm::BasicBlock *>;
-using loop_exit_edge_t = std::map<llvm::BasicBlock *, loop_exit_target_t>;
-
-llvm::raw_ostream &operator<<(llvm::raw_ostream &ros,
-                              const loop_exit_edge_t &LoopExitEdges);
+//using loop_exit_target_t = std::set<llvm::BasicBlock *>;
+//using loop_exit_edge_t = std::map<llvm::BasicBlock *, loop_exit_target_t>;
 
 namespace icsa {
 
@@ -51,7 +48,6 @@ public:
   const llvm::BasicBlock *getHeaderExit() const;
   bool getExitConditionValue(const llvm::Loop &CurLoop,
                              const llvm::BasicBlock *BB = nullptr) const;
-  loop_exit_edge_t getEdges(const llvm::Loop &CurLoop);
 
   llvm::Value *createExitFlag();
   llvm::Value *setExitFlag(bool On, llvm::Value *ExitFlag,

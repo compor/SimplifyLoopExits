@@ -158,33 +158,6 @@ bool SimplifyLoopExits::getExitConditionValue(
   return !CurLoop.contains(term->getSuccessor(0));
 }
 
-loop_exit_edge_t SimplifyLoopExits::getEdges(const llvm::Loop &CurLoop) {
-  assert(CurLoop.hasDedicatedExits() &&
-         "Loop exit predecessors must belong only to the loop!");
-
-  loop_exit_edge_t edges{};
-
-  for (auto *bb : CurLoop.getBlocks()) {
-    if (bb == CurLoop.getHeader())
-      continue;
-
-    auto *term = bb->getTerminator();
-    loop_exit_target_t externalSucc;
-
-    auto numSucc = term->getNumSuccessors();
-    for (decltype(numSucc) i = 0; i < numSucc; ++i) {
-      auto *succ = term->getSuccessor(i);
-      if (!CurLoop.contains(succ))
-        externalSucc.insert(succ);
-    }
-
-    if (!externalSucc.empty())
-      edges.emplace(bb, externalSucc);
-  }
-
-  return edges;
-}
-
 llvm::Value *SimplifyLoopExits::createExitFlag() {
   auto *hdrBranch = llvm::dyn_cast<llvm::BranchInst>(m_Header->getTerminator());
   assert(hdrBranch && "Loop header terminator must be a branch instruction!");
@@ -360,7 +333,6 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
     if (e.first == m_Header)
       continue;
 
-    llvm::outs() << e.first->getName() << " -> " << e.second->getName() << "\n";
     auto exitCond = getExitConditionValue(m_CurLoop, e.first);
 
     auto *term = const_cast<llvm::TerminatorInst *>(e.first->getTerminator());
@@ -439,47 +411,3 @@ void SimplifyLoopExits::redirectLoopExitsToLatch(llvm::Loop &CurLoop,
 }
 
 } // namespace icsa end
-
-// external functions
-
-llvm::raw_ostream &operator<<(llvm::raw_ostream &ros,
-                              const loop_exit_edge_t &LoopExitEdges) {
-  const llvm::StringRef title1{"Edge Head    "};
-  const llvm::StringRef title2{"Edge Target  "};
-  const llvm::StringRef anon{"unnamed"};
-  const llvm::StringRef delimiter{"|"};
-  const auto titleLength = title1.size();
-  const std::string separator(2 * titleLength + delimiter.size(), '-');
-  const std::string entryTemplate(titleLength, ' ');
-
-  ros << title1 << "|" << title2;
-  ros << "\n" << separator << "\n";
-
-  for (const auto &e : LoopExitEdges) {
-    std::string entry1{anon.str()};
-    std::string fill1{""};
-    auto fillLength1 = 0;
-
-    if (e.first->hasName())
-      entry1 = e.first->getName().substr(0, titleLength).str();
-
-    auto entryLength1 = entry1.size();
-    if (entryLength1 < titleLength)
-      fillLength1 = titleLength - entryLength1;
-
-    fill1.assign(fillLength1, ' ');
-
-    for (const auto &t : e.second) {
-      ros << entry1 << fill1 << "|";
-
-      if (t->hasName())
-        ros << t->getName().substr(0, titleLength);
-      else
-        ros << anon;
-
-      ros << "\n";
-    }
-  }
-
-  return ros;
-}
