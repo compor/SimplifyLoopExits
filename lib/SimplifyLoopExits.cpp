@@ -237,8 +237,6 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
         m_OldHeader, UnifiedExit, exitFlagVal, m_Header->getTerminator());
     m_Header->getTerminator()->eraseFromParent();
 
-    m_CurLoop.addBasicBlockToLoop(UnifiedExit, m_LI);
-
     // update exit edges
     auto found =
         std::find_if(m_Edges.begin(), m_Edges.end(), [this](const auto &e) {
