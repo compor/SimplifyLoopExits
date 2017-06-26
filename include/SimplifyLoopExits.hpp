@@ -79,6 +79,7 @@ private:
       std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>, 16>
       m_Edges;
 
+  void updateExitEdges();
   void redirectExitsToLatch();
 };
 

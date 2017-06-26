@@ -225,10 +225,6 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
   m_OldHeader = llvm::SplitBlock(m_Header, splitPt, nullptr, &m_LI);
   m_OldHeader->setName("old_header");
 
-  // update exit edges
-  m_Edges.emplace_back(m_OldHeader,
-                       getExitCondition(m_CurLoop, m_OldHeader).second);
-
   auto *exitFlagVal =
       new llvm::LoadInst(ExitFlag, "sle_flag", m_Header->getTerminator());
 
@@ -236,18 +232,9 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
     auto *hdrBr = llvm::BranchInst::Create(
         m_OldHeader, UnifiedExit, exitFlagVal, m_Header->getTerminator());
     m_Header->getTerminator()->eraseFromParent();
-
-    // update exit edges
-    auto found =
-        std::find_if(m_Edges.begin(), m_Edges.end(), [this](const auto &e) {
-          return e.first == m_Header ? true : false;
-        });
-
-    if (found != m_Edges.end())
-      m_Edges.erase(found);
-
-    m_Edges.emplace_back(m_Header, UnifiedExit);
   }
+
+  updateExitEdges();
 
   return m_Header;
 }
@@ -350,6 +337,13 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
 
 // private methods
 
+void SimplifyLoopExits::updateExitEdges() {
+  m_Edges.clear();
+  m_CurLoop.getExitEdges(m_Edges);
+
+  return;
+}
+
 void SimplifyLoopExits::redirectExitsToLatch() {
   for (auto e : m_Edges) {
     if (e.first == m_Header)
@@ -362,9 +356,7 @@ void SimplifyLoopExits::redirectExitsToLatch() {
     br->setSuccessor(!ec.first, m_Latch);
   }
 
-  // update exits
-  m_Edges.clear();
-  m_Edges.emplace_back(m_Header, m_Latch);
+  updateExitEdges();
 
   return;
 }
