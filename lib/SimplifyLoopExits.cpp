@@ -138,14 +138,6 @@ void SimplifyLoopExits::transform(void) {
   return;
 }
 
-const llvm::BasicBlock *SimplifyLoopExits::getHeaderExit() const {
-  for (auto &e : m_Edges)
-    if (m_Header == e.first)
-      return e.second;
-
-  return nullptr;
-}
-
 llvm::Value *SimplifyLoopExits::createExitFlag() {
   auto *hdrBranch = llvm::dyn_cast<llvm::BranchInst>(m_Header->getTerminator());
   assert(hdrBranch && "Loop header terminator must be a branch instruction!");
@@ -179,7 +171,7 @@ llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *On,
 llvm::BasicBlock *
 SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   auto &curCtx = m_Header->getContext();
-  auto *hdrExit = const_cast<llvm::BasicBlock *>(getHeaderExit());
+  auto *hdrExit = getExitCondition(m_CurLoop, m_Header).second;
 
   auto *unifiedExit =
       llvm::BasicBlock::Create(curCtx, "sle_exit", m_PreHeader->getParent());

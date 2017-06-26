@@ -46,7 +46,6 @@ public:
 
   void transform(void);
 
-  const llvm::BasicBlock *getHeaderExit() const;
   llvm::Value *createExitFlag();
   llvm::Value *setExitFlag(bool On, llvm::Value *ExitFlag,
                            llvm::Instruction *InsertBefore = nullptr);
