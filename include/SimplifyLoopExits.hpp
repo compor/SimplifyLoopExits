@@ -40,6 +40,7 @@ namespace icsa {
 class SimplifyLoopExits {
 public:
   using unified_exit_case_type = std::uint32_t;
+  unified_exit_case_type DefaultCase = 0;
 
 public:
   SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI);

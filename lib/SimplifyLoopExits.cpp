@@ -202,8 +202,7 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   for (auto &e : generated)
     llvm::DemoteRegToStack(*e, false, m_PreHeader->getTerminator());
 
-  // TODO define as default plus 1
-  unified_exit_case_type caseIdx = 1;
+  unified_exit_case_type caseIdx = DefaultCase + 1;
 
   for (auto eit = m_Edges.begin(), ee = m_Edges.end(); eit != ee; ++eit) {
     if (eit->second == hdrExit)
@@ -303,9 +302,7 @@ llvm::Value *SimplifyLoopExits::setExitSwitch(llvm::Value *Case,
 
 void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
                                          llvm::Value *ExitSwitch) {
-  // TODO denote default case value in a better way
-  unified_exit_case_type defaultCaseVal = 0;
-  unified_exit_case_type caseVal = 0;
+  unified_exit_case_type caseVal = DefaultCase;
 
   for (auto &e : m_Edges) {
     if (e.first == m_Header)
@@ -333,10 +330,10 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
 
     auto *flagStore = setExitFlag(selExitCond, ExitFlag, term);
 
-    auto curCaseVal = e.first == m_OldHeader ? defaultCaseVal : ++caseVal;
+    auto curCaseVal = e.first == m_OldHeader ? DefaultCase : ++caseVal;
 
-    auto cond1CaseVal = exitCond ? curCaseVal : defaultCaseVal;
-    auto cond2CaseVal = !exitCond ? curCaseVal : defaultCaseVal;
+    auto cond1CaseVal = exitCond ? curCaseVal : DefaultCase;
+    auto cond2CaseVal = !exitCond ? curCaseVal : DefaultCase;
 
     auto *cond1Case = llvm::ConstantInt::get(
         llvm::IntegerType::get(term->getContext(), unified_exit_case_type_bits),
