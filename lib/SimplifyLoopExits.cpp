@@ -106,7 +106,10 @@ SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
   m_Preheader = m_CurLoop.getLoopPreheader();
   m_Header = m_CurLoop.getHeader();
   m_Latch = m_CurLoop.getLoopLatch();
-  m_CurLoop.getExitEdges(m_Edges);
+  updateExitEdges();
+
+  if (m_DT)
+    m_DT->print(llvm::outs());
 
   return;
 }
@@ -126,7 +129,10 @@ void SimplifyLoopExits::transform(void) {
 
   auto oldHeader = createHeader(exitFlag, sleExit);
   attachExitValues(exitFlag, exitSwitch);
-  // redirectExitsToLatch();
+  //redirectExitsToLatch();
+
+  if (m_DT)
+    m_DT->print(llvm::outs());
 
   std::error_code ec;
   llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
@@ -219,8 +225,7 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
   auto *splitPt = m_Header->getFirstNonPHI();
   m_Header->setName("sle_header");
 
-  // TODO update dominance information
-  m_OldHeader = llvm::SplitBlock(m_Header, splitPt, nullptr, &m_LI);
+  m_OldHeader = llvm::SplitBlock(m_Header, splitPt, m_DT, &m_LI);
   m_OldHeader->setName("old_header");
 
   auto *exitFlagVal =
@@ -251,6 +256,22 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
   rlldpVisitor.visit(m_Header);
 
   m_CurLoop.addBasicBlockToLoop(sleLatch, m_LI);
+
+  // update dominance info
+  if (m_DT) {
+    auto *latchNode = m_DT->addNewBlock(sleLatch, (*m_DT)[m_Latch]->getBlock());
+
+    // move children of old latch to new
+    llvm::SmallVector<llvm::DomTreeNode *, 6> children;
+    children.insert(children.begin(), (*m_DT)[m_Latch]->begin(),
+                    (*m_DT)[m_Latch]->end());
+    for (auto *e : children)
+      m_DT->changeImmediateDominator(e, latchNode);
+
+    // not sure why the initial insertion does not work straight away
+    m_DT->changeImmediateDominator(latchNode, (*m_DT)[m_Latch]);
+  }
+
   m_Latch = sleLatch;
 
   return sleLatch;
