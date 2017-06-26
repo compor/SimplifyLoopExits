@@ -102,7 +102,7 @@ void DetectGeneratedValuesVisitor(const std::set<llvm::BasicBlock *> &Blocks,
 
 SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI)
     : m_CurLoop(CurLoop), m_LI(LI), m_PreHeader(nullptr), m_Header(nullptr),
-      m_Latch(nullptr) {
+      m_OldHeader(nullptr), m_Latch(nullptr) {
   assert(m_CurLoop.isLoopSimplifyForm() &&
          "Loop must be in loop simplify/canonical form!");
 
@@ -128,6 +128,7 @@ void SimplifyLoopExits::transform(void) {
   auto *sleExit = createUnifiedExit(exitSwitch);
 
   auto oldHeader = createHeader(exitFlag, sleExit);
+  attachExitValues(exitFlag, exitSwitch);
 
   std::error_code ec;
   llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
@@ -265,23 +266,41 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
 
 llvm::BasicBlock *
 SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
-                                    llvm::BasicBlock *UnifiedExit) {
+                                llvm::BasicBlock *UnifiedExit) {
   auto *splitPt = m_Header->getFirstNonPHI();
   m_Header->setName("sle_header");
 
   // TODO update dominance information
-  auto *oldHeader = llvm::SplitBlock(m_Header, splitPt, nullptr, &m_LI);
-  oldHeader->setName("old_header");
+  m_OldHeader = llvm::SplitBlock(m_Header, splitPt, nullptr, &m_LI);
+  m_OldHeader->setName("old_header");
+
+  // update exit edges
+  auto *term = llvm::dyn_cast<llvm::BranchInst>(m_OldHeader->getTerminator());
+  auto *oldExit = m_CurLoop.contains(term->getSuccessor(0))
+                      ? term->getSuccessor(1)
+                      : term->getSuccessor(0);
+  m_Edges.push_back(std::make_pair(m_OldHeader, oldExit));
 
   auto *exitFlagVal =
       new llvm::LoadInst(ExitFlag, "sle_flag", m_Header->getTerminator());
 
   if (UnifiedExit) {
-    auto *hdrBr = llvm::BranchInst::Create(oldHeader, UnifiedExit, exitFlagVal,
-                                           m_Header->getTerminator());
+    auto *hdrBr = llvm::BranchInst::Create(
+        m_OldHeader, UnifiedExit, exitFlagVal, m_Header->getTerminator());
     m_Header->getTerminator()->eraseFromParent();
 
     m_CurLoop.addBasicBlockToLoop(UnifiedExit, m_LI);
+
+    // update exit edges
+    auto found =
+        std::find_if(m_Edges.begin(), m_Edges.end(), [this](const auto &e) {
+          return e.first == m_Header ? true : false;
+        });
+
+    if (found != m_Edges.end())
+      m_Edges.erase(found);
+
+    m_Edges.push_back(std::make_pair(m_Header, UnifiedExit));
   }
 
   return m_Header;
@@ -331,17 +350,20 @@ llvm::Value *SimplifyLoopExits::setExitSwitch(llvm::Value *Case,
   return new llvm::StoreInst(Case, ExitSwitch, InsertBefore);
 }
 
-void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
-                                         llvm::Value *ExitFlag,
-                                         llvm::Value *ExitSwitch,
-                                         loop_exit_edge_t &LoopExitEdges) {
+void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
+                                         llvm::Value *ExitSwitch) {
   // TODO denote default case value in a better way
+  unified_exit_case_type defaultCaseVal = 0;
   unified_exit_case_type caseVal = 0;
 
-  for (auto &e : LoopExitEdges) {
-    auto exitCond = getExitConditionValue(CurLoop, e.first);
+  for (auto &e : m_Edges) {
+    if (e.first == m_Header)
+      continue;
 
-    auto *term = e.first->getTerminator();
+    llvm::outs() << e.first->getName() << " -> " << e.second->getName() << "\n";
+    auto exitCond = getExitConditionValue(m_CurLoop, e.first);
+
+    auto *term = const_cast<llvm::TerminatorInst *>(e.first->getTerminator());
     assert(term->getNumSuccessors() <= 2 &&
            "Loop exiting block with more than 2 successors is not supported!");
 
@@ -361,10 +383,10 @@ void SimplifyLoopExits::attachExitValues(llvm::Loop &CurLoop,
 
     auto *flagStore = setExitFlag(selExitCond, ExitFlag, term);
 
-    ++caseVal;
+    auto curCaseVal = e.first == m_OldHeader ? defaultCaseVal : ++caseVal;
 
-    auto cond1CaseVal = exitCond ? caseVal : 0;
-    auto cond2CaseVal = !exitCond ? caseVal : 0;
+    auto cond1CaseVal = exitCond ? curCaseVal : defaultCaseVal;
+    auto cond2CaseVal = !exitCond ? curCaseVal : defaultCaseVal;
 
     auto *cond1Case = llvm::ConstantInt::get(
         llvm::IntegerType::get(term->getContext(), unified_exit_case_type_bits),

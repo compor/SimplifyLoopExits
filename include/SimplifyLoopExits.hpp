@@ -68,18 +68,17 @@ public:
 
   llvm::BasicBlock *createUnifiedExit(llvm::Value *ExitSwitch);
   llvm::BasicBlock *createHeader(llvm::Value *ExitFlag,
-                                     llvm::BasicBlock *UnifiedExit = nullptr);
+                                 llvm::BasicBlock *UnifiedExit = nullptr);
   llvm::BasicBlock *createLatch();
 
-  void attachExitValues(llvm::Loop &CurLoop, llvm::Value *ExitFlag,
-                        llvm::Value *ExitSwitchCond,
-                        loop_exit_edge_t &LoopExitEdges);
+  void attachExitValues(llvm::Value *ExitFlag, llvm::Value *ExitSwitch);
 
 private:
   llvm::Loop &m_CurLoop;
   llvm::LoopInfo &m_LI;
   llvm::BasicBlock *m_PreHeader;
   llvm::BasicBlock *m_Header;
+  llvm::BasicBlock *m_OldHeader;
   llvm::BasicBlock *m_Latch;
   // TODO use alias for vector element type
   llvm::SmallVector<
