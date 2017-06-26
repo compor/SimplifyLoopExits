@@ -23,6 +23,10 @@
 // using llvm::LoopInfoWrapperPass
 // using llvm::LoopInfo
 
+#include "llvm/IR/Dominators.h"
+// using llvm::DominatorTree
+// using llvm::DominatorTreeWrapperPass
+
 #include "llvm/IR/LegacyPassManager.h"
 // using llvm::PassManagerBase
 
@@ -93,10 +97,13 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
     if (CurFunc.isDeclaration())
       continue;
 
+    auto &DT =
+        getAnalysis<llvm::DominatorTreeWrapperPass>(CurFunc).getDomTree();
+
     auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>(CurFunc).getLoopInfo();
     auto *CurLoop = *(LI.begin());
 
-    SimplifyLoopExits sle{*CurLoop, LI};
+    SimplifyLoopExits sle{*CurLoop, LI, &DT};
     sle.transform();
 
     // auto *exitFlag = sle.createExitFlag(*CurLoop);
@@ -121,6 +128,7 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
 }
 
 void SimplifyLoopExitsPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
+  AU.addRequiredTransitive<llvm::DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<llvm::LoopInfoWrapperPass>();
 
   return;

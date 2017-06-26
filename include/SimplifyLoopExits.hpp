@@ -24,12 +24,11 @@ namespace llvm {
 class Value;
 class Loop;
 class LoopInfo;
+class DominatorTree;
 class BasicBlock;
 class Instruction;
 class raw_ostream;
 } // namespace llvm end
-
-using indexed_basicblock_t = std::pair<llvm::BasicBlock *, unsigned>;
 
 std::pair<bool, llvm::BasicBlock *>
 getExitCondition(const llvm::Loop &CurLoop,
@@ -43,7 +42,8 @@ public:
   unified_exit_case_type DefaultCase = 0;
 
 public:
-  SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI);
+  SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
+                    llvm::DominatorTree *DT = nullptr);
 
   void transform(void);
 
@@ -70,14 +70,14 @@ public:
 private:
   llvm::Loop &m_CurLoop;
   llvm::LoopInfo &m_LI;
-  llvm::BasicBlock *m_PreHeader;
+  llvm::DominatorTree *m_DT;
+  llvm::BasicBlock *m_Preheader;
   llvm::BasicBlock *m_Header;
   llvm::BasicBlock *m_OldHeader;
   llvm::BasicBlock *m_Latch;
   // TODO use alias for vector element type
   llvm::SmallVector<
-      std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>, 16>
-      m_Edges;
+      std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>, 6> m_Edges;
 
   void updateExitEdges();
   void redirectExitsToLatch();

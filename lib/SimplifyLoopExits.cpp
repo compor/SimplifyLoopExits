@@ -4,9 +4,8 @@
 
 #include "SimplifyLoopExits.hpp"
 
-#include "llvm/IR/CFG.h"
-// using llvm::succ_begin
-// using llvm::succ_end
+#include "llvm/IR/Dominators.h"
+// using llvm::DominatorTree
 
 #include "llvm/IR/BasicBlock.h"
 // using llvm::BasicBlock
@@ -97,13 +96,14 @@ void DetectGeneratedValuesVisitor(const std::set<llvm::BasicBlock *> &Blocks,
   return;
 }
 
-SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI)
-    : m_CurLoop(CurLoop), m_LI(LI), m_PreHeader(nullptr), m_Header(nullptr),
-      m_OldHeader(nullptr), m_Latch(nullptr) {
+SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
+                                     llvm::DominatorTree *DT)
+    : m_CurLoop(CurLoop), m_LI(LI), m_DT(DT), m_Preheader(nullptr),
+      m_Header(nullptr), m_OldHeader(nullptr), m_Latch(nullptr) {
   assert(m_CurLoop.isLoopSimplifyForm() &&
          "Loop must be in loop simplify/canonical form!");
 
-  m_PreHeader = m_CurLoop.getLoopPreheader();
+  m_Preheader = m_CurLoop.getLoopPreheader();
   m_Header = m_CurLoop.getHeader();
   m_Latch = m_CurLoop.getLoopLatch();
   m_CurLoop.getExitEdges(m_Edges);
@@ -114,14 +114,14 @@ SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI)
 void SimplifyLoopExits::transform(void) {
   auto *exitFlag = createExitFlag();
   auto *exitFlagVal = setExitFlag(!getExitCondition(m_CurLoop).first, exitFlag,
-                                  m_PreHeader->getTerminator());
+                                  m_Preheader->getTerminator());
 
   createLatch();
 
   auto *exitSwitch = createExitSwitch();
   unified_exit_case_type initCase = 0;
   auto *exitSwitchVal =
-      setExitSwitch(initCase, exitSwitch, m_PreHeader->getTerminator());
+      setExitSwitch(initCase, exitSwitch, m_Preheader->getTerminator());
   auto *sleExit = createUnifiedExit(exitSwitch);
 
   auto oldHeader = createHeader(exitFlag, sleExit);
@@ -144,7 +144,7 @@ llvm::Value *SimplifyLoopExits::createExitFlag() {
                        : llvm::IntegerType::get(hdrBranch->getContext(),
                                                 unified_exit_case_type_bits);
   auto *flagAlloca = new llvm::AllocaInst(flagType, nullptr, "sle_flag",
-                                          m_PreHeader->getTerminator());
+                                          m_Preheader->getTerminator());
 
   return flagAlloca;
 }
@@ -171,7 +171,7 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   auto *hdrExit = getExitCondition(m_CurLoop, m_Header).second;
 
   auto *unifiedExit =
-      llvm::BasicBlock::Create(curCtx, "sle_exit", m_PreHeader->getParent());
+      llvm::BasicBlock::Create(curCtx, "sle_exit", m_Preheader->getParent());
 
   auto *exitSwitchVal =
       new llvm::LoadInst(ExitSwitch, "sle_switch", unifiedExit);
@@ -197,7 +197,7 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   }
 
   for (auto &e : generated)
-    llvm::DemoteRegToStack(*e, false, m_PreHeader->getTerminator());
+    llvm::DemoteRegToStack(*e, false, m_Preheader->getTerminator());
 
   unified_exit_case_type caseIdx = DefaultCase + 1;
 
@@ -257,10 +257,10 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
 }
 
 llvm::Value *SimplifyLoopExits::createExitSwitch() {
-  auto *caseType = llvm::IntegerType::get(m_PreHeader->getContext(),
+  auto *caseType = llvm::IntegerType::get(m_Preheader->getContext(),
                                           unified_exit_case_type_bits);
   auto *caseAlloca = new llvm::AllocaInst(caseType, nullptr, "sle_switch",
-                                          m_PreHeader->getTerminator());
+                                          m_Preheader->getTerminator());
 
   return caseAlloca;
 }
