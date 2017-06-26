@@ -74,11 +74,9 @@ struct RedirectDependentPHIsVisitor
       : m_Old(Old), m_New(New) {}
 
   void visitPHI(llvm::PHINode &I) {
-    auto numInc = I.getNumIncomingValues();
-
-    for (decltype(numInc) i = 0; i < numInc; ++i)
-      if (I.getIncomingBlock(i) == &m_Old)
-        I.setIncomingBlock(i, &m_New);
+    int n = -1;
+    while ((n = I.getBasicBlockIndex(&m_Old)) >= 0)
+      I.setIncomingBlock(n, &m_New);
 
     return;
   }
