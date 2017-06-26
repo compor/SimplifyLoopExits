@@ -66,20 +66,19 @@ namespace icsa {
 constexpr auto unified_exit_case_type_bits =
     std::numeric_limits<SimplifyLoopExits::unified_exit_case_type>::digits;
 
-struct RedirectLoopLatchDependentPHIsVisitor
-    : public llvm::InstVisitor<RedirectLoopLatchDependentPHIsVisitor> {
-  llvm::BasicBlock &m_OldLatch, &m_NewLatch;
+struct RedirectDependentPHIsVisitor
+    : public llvm::InstVisitor<RedirectDependentPHIsVisitor> {
+  llvm::BasicBlock &m_Old, &m_New;
 
-  RedirectLoopLatchDependentPHIsVisitor(llvm::BasicBlock &OldLatch,
-                                        llvm::BasicBlock &NewLatch)
-      : m_OldLatch(OldLatch), m_NewLatch(NewLatch) {}
+  RedirectDependentPHIsVisitor(llvm::BasicBlock &Old, llvm::BasicBlock &New)
+      : m_Old(Old), m_New(New) {}
 
   void visitPHI(llvm::PHINode &I) {
     auto numInc = I.getNumIncomingValues();
 
     for (decltype(numInc) i = 0; i < numInc; ++i)
-      if (I.getIncomingBlock(i) == &m_OldLatch)
-        I.setIncomingBlock(i, &m_NewLatch);
+      if (I.getIncomingBlock(i) == &m_Old)
+        I.setIncomingBlock(i, &m_New);
 
     return;
   }
@@ -129,7 +128,7 @@ void SimplifyLoopExits::transform(void) {
 
   auto oldHeader = createHeader(exitFlag, sleExit);
   attachExitValues(exitFlag, exitSwitch);
-  //redirectExitsToLatch();
+  // redirectExitsToLatch();
 
   std::error_code ec;
   llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
@@ -265,7 +264,7 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
   auto *latchBr = llvm::dyn_cast<llvm::BranchInst>(m_Latch->getTerminator());
   latchBr->setSuccessor(0, sleLatch);
 
-  RedirectLoopLatchDependentPHIsVisitor rlldpVisitor{*m_Latch, *sleLatch};
+  RedirectDependentPHIsVisitor rlldpVisitor{*m_Latch, *sleLatch};
   rlldpVisitor.visit(m_Header);
 
   m_CurLoop.addBasicBlockToLoop(sleLatch, m_LI);
