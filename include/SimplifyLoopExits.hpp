@@ -79,7 +79,7 @@ private:
       std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>, 16>
       m_Edges;
 
-  //void redirectLoopExitsToLatch();
+  void redirectExitsToLatch();
 };
 
 } // namespace icsa end

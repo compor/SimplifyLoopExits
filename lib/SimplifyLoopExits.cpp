@@ -129,6 +129,7 @@ void SimplifyLoopExits::transform(void) {
 
   auto oldHeader = createHeader(exitFlag, sleExit);
   attachExitValues(exitFlag, exitSwitch);
+  //redirectExitsToLatch();
 
   std::error_code ec;
   llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
@@ -212,13 +213,13 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   // TODO define as default plus 1
   unified_exit_case_type caseIdx = 1;
 
-  for (auto ei = m_Edges.begin(), ee = m_Edges.end(); ei != ee; ++ei) {
-    if (ei->second == hdrExit)
+  for (auto eit = m_Edges.begin(), ee = m_Edges.end(); eit != ee; ++eit) {
+    if (eit->second == hdrExit)
       continue;
 
     auto *caseVal = llvm::ConstantInt::get(
         llvm::IntegerType::get(curCtx, unified_exit_case_type_bits), caseIdx++);
-    sleBr->addCase(caseVal, const_cast<llvm::BasicBlock *>(ei->second));
+    sleBr->addCase(caseVal, const_cast<llvm::BasicBlock *>(eit->second));
   }
 
   return unifiedExit;
@@ -235,8 +236,8 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
   m_OldHeader->setName("old_header");
 
   // update exit edges
-  m_Edges.push_back(std::make_pair(
-      m_OldHeader, getExitCondition(m_CurLoop, m_OldHeader).second));
+  m_Edges.emplace_back(m_OldHeader,
+                       getExitCondition(m_CurLoop, m_OldHeader).second);
 
   auto *exitFlagVal =
       new llvm::LoadInst(ExitFlag, "sle_flag", m_Header->getTerminator());
@@ -257,7 +258,7 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
     if (found != m_Edges.end())
       m_Edges.erase(found);
 
-    m_Edges.push_back(std::make_pair(m_Header, UnifiedExit));
+    m_Edges.emplace_back(m_Header, UnifiedExit);
   }
 
   return m_Header;
@@ -266,19 +267,20 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
 llvm::BasicBlock *SimplifyLoopExits::createLatch() {
   auto &curCtx = m_Header->getContext();
 
-  auto sleLoopLatch =
+  auto sleLatch =
       llvm::BasicBlock::Create(curCtx, "sle_latch", m_Header->getParent());
 
-  auto *sleLatchBr = llvm::BranchInst::Create(m_Header, sleLoopLatch);
+  auto *sleLatchBr = llvm::BranchInst::Create(m_Header, sleLatch);
   auto *latchBr = llvm::dyn_cast<llvm::BranchInst>(m_Latch->getTerminator());
-  latchBr->setSuccessor(0, sleLoopLatch);
+  latchBr->setSuccessor(0, sleLatch);
 
-  RedirectLoopLatchDependentPHIsVisitor rlldpVisitor{*m_Latch, *sleLoopLatch};
+  RedirectLoopLatchDependentPHIsVisitor rlldpVisitor{*m_Latch, *sleLatch};
   rlldpVisitor.visit(m_Header);
 
-  m_CurLoop.addBasicBlockToLoop(sleLoopLatch, m_LI);
+  m_CurLoop.addBasicBlockToLoop(sleLatch, m_LI);
+  m_Latch = sleLatch;
 
-  return sleLoopLatch;
+  return sleLatch;
 }
 
 llvm::Value *SimplifyLoopExits::createExitSwitch() {
@@ -362,26 +364,24 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
 
 // private methods
 
-//void SimplifyLoopExits::redirectLoopExitsToLatch() {
-  //for (; etIt != exitTargetEnd; ++etIt)
-    //for (auto *u : (*etIt)->users()) {
-      //auto *brInst = llvm::dyn_cast<llvm::BranchInst>(u);
-      //if (!brInst)
-        //continue;
+void SimplifyLoopExits::redirectExitsToLatch() {
+  for (auto e : m_Edges) {
+    if (e.first == m_Header)
+      continue;
 
-      //if (!CurLoop.contains(brInst))
-        //continue;
+    auto ec = getExitCondition(m_CurLoop, e.first);
 
-      //auto numSucc = brInst->getNumSuccessors();
-      //for (decltype(numSucc) i = 0; i < numSucc; ++i) {
-        //auto *succ = brInst->getSuccessor(i);
-        //if (*etIt == succ)
-          //brInst->setSuccessor(i, loopLatch);
-      //}
-    //}
+    auto *br = llvm::dyn_cast<llvm::BranchInst>(
+        const_cast<llvm::BasicBlock *>(e.first)->getTerminator());
+    br->setSuccessor(!ec.first, m_Latch);
+  }
 
-  //return;
-//}
+  // update exits
+  m_Edges.clear();
+  m_Edges.emplace_back(m_Header, m_Latch);
+
+  return;
+}
 
 } // namespace icsa end
 
