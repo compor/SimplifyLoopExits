@@ -31,8 +31,9 @@ class raw_ostream;
 
 using indexed_basicblock_t = std::pair<llvm::BasicBlock *, unsigned>;
 
-//using loop_exit_target_t = std::set<llvm::BasicBlock *>;
-//using loop_exit_edge_t = std::map<llvm::BasicBlock *, loop_exit_target_t>;
+std::pair<bool, llvm::BasicBlock *>
+getExitCondition(const llvm::Loop &CurLoop,
+                 const llvm::BasicBlock *BB = nullptr);
 
 namespace icsa {
 
@@ -46,9 +47,6 @@ public:
   void transform(void);
 
   const llvm::BasicBlock *getHeaderExit() const;
-  bool getExitConditionValue(const llvm::Loop &CurLoop,
-                             const llvm::BasicBlock *BB = nullptr) const;
-
   llvm::Value *createExitFlag();
   llvm::Value *setExitFlag(bool On, llvm::Value *ExitFlag,
                            llvm::Instruction *InsertBefore = nullptr);
@@ -81,10 +79,7 @@ private:
       std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>, 16>
       m_Edges;
 
-  template <typename ForwardIter>
-  void redirectLoopExitsToLatch(llvm::Loop &CurLoop,
-                                ForwardIter exitTargetStart,
-                                ForwardIter exitTargetEnd);
+  //void redirectLoopExitsToLatch();
 };
 
 } // namespace icsa end

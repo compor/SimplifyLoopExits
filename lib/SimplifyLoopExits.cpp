@@ -116,7 +116,7 @@ SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI)
 
 void SimplifyLoopExits::transform(void) {
   auto *exitFlag = createExitFlag();
-  auto *exitFlagVal = setExitFlag(!getExitConditionValue(m_CurLoop), exitFlag,
+  auto *exitFlagVal = setExitFlag(!getExitCondition(m_CurLoop).first, exitFlag,
                                   m_PreHeader->getTerminator());
 
   createLatch();
@@ -143,19 +143,6 @@ const llvm::BasicBlock *SimplifyLoopExits::getHeaderExit() const {
       return e.second;
 
   return nullptr;
-}
-
-bool SimplifyLoopExits::getExitConditionValue(
-    const llvm::Loop &CurLoop, const llvm::BasicBlock *BB) const {
-  auto term = BB ? BB->getTerminator() : CurLoop.getHeader()->getTerminator();
-
-  assert(CurLoop.contains(term->getParent()) &&
-         "Basic block must belong to loop!");
-
-  if (!term->getNumSuccessors())
-    return false;
-
-  return !CurLoop.contains(term->getSuccessor(0));
 }
 
 llvm::Value *SimplifyLoopExits::createExitFlag() {
@@ -248,11 +235,8 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
   m_OldHeader->setName("old_header");
 
   // update exit edges
-  auto *term = llvm::dyn_cast<llvm::BranchInst>(m_OldHeader->getTerminator());
-  auto *oldExit = m_CurLoop.contains(term->getSuccessor(0))
-                      ? term->getSuccessor(1)
-                      : term->getSuccessor(0);
-  m_Edges.push_back(std::make_pair(m_OldHeader, oldExit));
+  m_Edges.push_back(std::make_pair(
+      m_OldHeader, getExitCondition(m_CurLoop, m_OldHeader).second));
 
   auto *exitFlagVal =
       new llvm::LoadInst(ExitFlag, "sle_flag", m_Header->getTerminator());
@@ -333,7 +317,7 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
     if (e.first == m_Header)
       continue;
 
-    auto exitCond = getExitConditionValue(m_CurLoop, e.first);
+    auto exitCond = getExitCondition(m_CurLoop, e.first).first;
 
     auto *term = const_cast<llvm::TerminatorInst *>(e.first->getTerminator());
     assert(term->getNumSuccessors() <= 2 &&
@@ -378,36 +362,48 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
 
 // private methods
 
-template <typename ForwardIter>
-void SimplifyLoopExits::redirectLoopExitsToLatch(llvm::Loop &CurLoop,
-                                                 ForwardIter exitTargetStart,
-                                                 ForwardIter exitTargetEnd) {
-  auto *loopLatch = CurLoop.getLoopLatch();
-  assert(loopLatch && "Loop is required to have a single loop latch!");
+//void SimplifyLoopExits::redirectLoopExitsToLatch() {
+  //for (; etIt != exitTargetEnd; ++etIt)
+    //for (auto *u : (*etIt)->users()) {
+      //auto *brInst = llvm::dyn_cast<llvm::BranchInst>(u);
+      //if (!brInst)
+        //continue;
 
-  typename std::enable_if<
-      std::is_same<typename std::iterator_traits<ForwardIter>::value_type,
-                   llvm::BasicBlock *>::value,
-      ForwardIter>::type etIt = exitTargetStart;
+      //if (!CurLoop.contains(brInst))
+        //continue;
 
-  for (; etIt != exitTargetEnd; ++etIt)
-    for (auto *u : (*etIt)->users()) {
-      auto *brInst = llvm::dyn_cast<llvm::BranchInst>(u);
-      if (!brInst)
-        continue;
+      //auto numSucc = brInst->getNumSuccessors();
+      //for (decltype(numSucc) i = 0; i < numSucc; ++i) {
+        //auto *succ = brInst->getSuccessor(i);
+        //if (*etIt == succ)
+          //brInst->setSuccessor(i, loopLatch);
+      //}
+    //}
 
-      if (!CurLoop.contains(brInst))
-        continue;
-
-      auto numSucc = brInst->getNumSuccessors();
-      for (decltype(numSucc) i = 0; i < numSucc; ++i) {
-        auto *succ = brInst->getSuccessor(i);
-        if (*etIt == succ)
-          brInst->setSuccessor(i, loopLatch);
-      }
-    }
-
-  return;
-}
+  //return;
+//}
 
 } // namespace icsa end
+
+std::pair<bool, llvm::BasicBlock *>
+getExitCondition(const llvm::Loop &CurLoop, const llvm::BasicBlock *BB) {
+  auto term = BB ? BB->getTerminator() : CurLoop.getHeader()->getTerminator();
+
+  assert(CurLoop.contains(term->getParent()) &&
+         "Basic block must belong to loop!");
+
+  auto ec = std::make_pair(false, static_cast<llvm::BasicBlock *>(nullptr));
+
+  assert(term->getNumSuccessors() <= 2 &&
+         "Loop exiting block with more than 2 successors is not supported!");
+
+  if (!CurLoop.contains(term->getSuccessor(0))) {
+    ec.first = true;
+    ec.second = term->getSuccessor(0);
+  } else {
+    ec.first = false;
+    ec.second = term->getSuccessor(1);
+  }
+
+  return ec;
+}
