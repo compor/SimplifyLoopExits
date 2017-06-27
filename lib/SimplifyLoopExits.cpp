@@ -16,20 +16,26 @@
 #include "llvm/IR/Constants.h"
 // using llvm::ConstantInt
 
+#include "llvm/IR/Value.h"
+// using llvm::Value
+
+#include "llvm/IR/Instruction.h"
+// using llvm::Instruction
+
 #include "llvm/IR/Instructions.h"
 // using llvm::AllocaInst
 // using llvm::StoreInst
 // using llvm::LoadInst
 // using llvm::BranchInst
-
-#include "llvm/IR/Instruction.h"
-// using llvm::BinaryOps
+// using llvm::SwitchInst
+// using llvm::SelectInst
 
 #include "llvm/IR/InstVisitor.h"
 // using llvm::InstVisitor
 
 #include "llvm/Analysis/LoopInfo.h"
 // using llvm::Loop
+// using llvm::LoopInfo
 
 #include "llvm/Support/Casting.h"
 // using llvm::dyn_cast
@@ -43,12 +49,8 @@
 #include "llvm/Support/raw_ostream.h"
 // using llvm::raw_ostream
 
-#include <iterator>
-// using std::iterator_traits
-
-#include <type_traits>
-// using std::enable_if
-// using std::is_same
+#include <algorithm>
+// using std::find
 
 #include <limits>
 // using std::numeric_limits

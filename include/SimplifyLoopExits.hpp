@@ -11,9 +11,6 @@
 #include <cstdint>
 // using std::int32_t
 
-#include <map>
-// using std::map
-
 #include <set>
 // using std::set
 
