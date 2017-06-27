@@ -127,28 +127,23 @@ void DetectGeneratedValuesVisitor(const std::set<llvm::BasicBlock *> &Blocks,
   return;
 }
 
-SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
+SimplifyLoopExits::SimplifyLoopExits(llvm::LoopInfo &LI,
                                      llvm::DominatorTree *DT)
-    : m_CurLoop(CurLoop), m_LI(LI), m_DT(DT), m_Preheader(nullptr),
+    : m_LI(LI), m_DT(DT), m_CurLoop(nullptr), m_Preheader(nullptr),
       m_Header(nullptr), m_OldHeader(nullptr), m_Latch(nullptr),
-      m_OldLatch(nullptr) {
-  assert(m_CurLoop.isLoopSimplifyForm() &&
-         "Loop must be in loop simplify/canonical form!");
+      m_OldLatch(nullptr) {}
 
-  m_Preheader = m_CurLoop.getLoopPreheader();
-  m_Header = m_CurLoop.getHeader();
-  m_Latch = m_CurLoop.getLoopLatch();
-  updateExitEdges();
+bool SimplifyLoopExits::transform(llvm::Loop &CurLoop) {
+  auto found = std::find(m_LI.begin(), m_LI.end(), &CurLoop);
+  assert(found != m_LI.end() && "Loop does not belong to LoopInfo!");
 
-  return;
-}
+  init(CurLoop);
 
-bool SimplifyLoopExits::transform(void) {
-  if (isLoopExitSimplifyForm(m_CurLoop))
+  if (isLoopExitSimplifyForm(*m_CurLoop))
     return false;
 
   auto *exitFlag = createExitFlag();
-  auto *exitFlagVal = setExitFlag(!getExitCondition(m_CurLoop).first, exitFlag,
+  auto *exitFlagVal = setExitFlag(!getExitCondition(*m_CurLoop).first, exitFlag,
                                   m_Preheader->getTerminator());
 
   createLatch();
@@ -169,10 +164,10 @@ bool SimplifyLoopExits::transform(void) {
   if (m_DT)
     m_DT->recalculate(*(m_Header->getParent()));
 
-  assert(m_CurLoop.isLoopSimplifyForm() &&
+  assert(m_CurLoop->isLoopSimplifyForm() &&
          "Pass did not preserve loop canonical for as expected!");
 
-  assert(isLoopExitSimplifyForm(m_CurLoop) &&
+  assert(isLoopExitSimplifyForm(*m_CurLoop) &&
          "Pass did not transform loop as expected!");
 
   std::error_code ec;
@@ -215,7 +210,7 @@ llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *On,
 llvm::BasicBlock *
 SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   auto &curCtx = m_Header->getContext();
-  auto *hdrExit = getExitCondition(m_CurLoop, m_Header).second;
+  auto *hdrExit = getExitCondition(*m_CurLoop, m_Header).second;
 
   auto *unifiedExit =
       llvm::BasicBlock::Create(curCtx, "sle_exit", m_Preheader->getParent());
@@ -276,7 +271,7 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
   RedirectDependentPHIsVisitor rlldpVisitor{*m_Latch, *sleLatch};
   rlldpVisitor.visit(m_Header);
 
-  m_CurLoop.addBasicBlockToLoop(sleLatch, m_LI);
+  m_CurLoop->addBasicBlockToLoop(sleLatch, m_LI);
 
   m_OldLatch = m_Latch;
   m_Latch = sleLatch;
@@ -318,7 +313,7 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
     if (e.first == m_Header)
       continue;
 
-    auto exitCond = getExitCondition(m_CurLoop, e.first).first;
+    auto exitCond = getExitCondition(*m_CurLoop, e.first).first;
 
     auto *term = const_cast<llvm::TerminatorInst *>(e.first->getTerminator());
     assert(term->getNumSuccessors() <= 2 &&
@@ -363,17 +358,34 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
 
 // private methods
 
+void SimplifyLoopExits::init(llvm::Loop &CurLoop) {
+  assert(CurLoop.isLoopSimplifyForm() &&
+         "Loop must be in loop simplify/canonical form!");
+
+  m_CurLoop = &CurLoop;
+  m_Preheader = m_CurLoop->getLoopPreheader();
+  m_Header = m_CurLoop->getHeader();
+  m_Latch = m_CurLoop->getLoopLatch();
+
+  m_OldHeader = nullptr;
+  m_OldLatch = nullptr;
+
+  updateExitEdges();
+
+  return;
+}
+
 void SimplifyLoopExits::updateExitEdges() {
   m_Edges.clear();
-  m_CurLoop.getExitEdges(m_Edges);
+  m_CurLoop->getExitEdges(m_Edges);
 
   return;
 }
 
 void SimplifyLoopExits::demoteGeneratedValues() {
   std::set<llvm::Instruction *> generated;
-  std::set<llvm::BasicBlock *> blocks(m_CurLoop.getBlocks().begin(),
-                                      m_CurLoop.getBlocks().end());
+  std::set<llvm::BasicBlock *> blocks(m_CurLoop->getBlocks().begin(),
+                                      m_CurLoop->getBlocks().end());
   DetectGeneratedValuesVisitor(blocks, generated);
 
   // remove header phi because they are preserved
@@ -392,7 +404,7 @@ void SimplifyLoopExits::demoteGeneratedValues() {
     for (auto *u : e.users()) {
       auto *i = llvm::dyn_cast<llvm::Instruction>(u);
       if (i && i->getParent() != m_OldLatch &&
-          m_CurLoop.contains(i->getParent())) {
+          m_CurLoop->contains(i->getParent())) {
         generated.insert(&e);
         break;
       }
@@ -413,7 +425,7 @@ void SimplifyLoopExits::redirectExitingBlocksToLatch() {
       continue;
 
     auto *exiting = const_cast<llvm::BasicBlock *>(e.first);
-    auto ec = getExitCondition(m_CurLoop, exiting);
+    auto ec = getExitCondition(*m_CurLoop, exiting);
 
     auto *br = llvm::dyn_cast<llvm::BranchInst>(exiting->getTerminator());
     br->setSuccessor(!ec.first, m_Latch);

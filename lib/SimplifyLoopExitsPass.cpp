@@ -96,6 +96,8 @@ static llvm::RegisterStandardPasses
 //
 
 bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
+  bool changed = false;
+
   for (auto &CurFunc : M) {
     if (CurFunc.isDeclaration())
       continue;
@@ -106,11 +108,11 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
     auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>(CurFunc).getLoopInfo();
     auto *CurLoop = *(LI.begin());
 
-    SimplifyLoopExits sle{*CurLoop, LI, &DT};
-    sle.transform();
+    SimplifyLoopExits sle{LI, &DT};
+    changed |= sle.transform(*CurLoop);
   }
 
-  return false;
+  return changed;
 }
 
 void SimplifyLoopExitsPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
