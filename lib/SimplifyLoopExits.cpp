@@ -109,9 +109,6 @@ SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
   m_Latch = m_CurLoop.getLoopLatch();
   updateExitEdges();
 
-  if (m_DT)
-    m_DT->print(llvm::outs());
-
   return;
 }
 
@@ -135,10 +132,8 @@ void SimplifyLoopExits::transform(void) {
   attachExitValues(exitFlag, exitSwitch);
   redirectExitingBlocksToLatch();
 
-  if (m_DT) {
-    m_DT->updateDFSNumbers();
-    m_DT->print(llvm::outs());
-  }
+  if (m_DT)
+    m_DT->recalculate(*(m_Header->getParent()));
 
   std::error_code ec;
   llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
@@ -221,10 +216,6 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
     auto *hdrBr = llvm::BranchInst::Create(
         m_OldHeader, UnifiedExit, exitFlagVal, m_Header->getTerminator());
     m_Header->getTerminator()->eraseFromParent();
-
-    if (m_DT) {
-      m_DT->addNewBlock(UnifiedExit, m_Header);
-    }
   }
 
   updateExitEdges();
@@ -246,21 +237,6 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
   rlldpVisitor.visit(m_Header);
 
   m_CurLoop.addBasicBlockToLoop(sleLatch, m_LI);
-
-  // update dominance info
-  if (m_DT) {
-    auto *latchNode = m_DT->addNewBlock(sleLatch, m_Latch);
-
-    // move children of old latch to new
-    llvm::SmallVector<llvm::DomTreeNode *, 6> children;
-    children.insert(children.begin(), (*m_DT)[m_Latch]->begin(),
-                    (*m_DT)[m_Latch]->end());
-    for (auto *e : children)
-      m_DT->changeImmediateDominator(e, latchNode);
-
-    // not sure why the initial insertion does not work straight away
-    m_DT->changeImmediateDominator(latchNode, (*m_DT)[m_Latch]);
-  }
 
   m_OldLatch = m_Latch;
   m_Latch = sleLatch;
@@ -401,29 +377,6 @@ void SimplifyLoopExits::redirectExitingBlocksToLatch() {
 
     auto *br = llvm::dyn_cast<llvm::BranchInst>(exiting->getTerminator());
     br->setSuccessor(!ec.first, m_Latch);
-  }
-
-  if (m_DT) {
-    auto *exitingCommon = m_Latch;
-
-    for (auto e : m_Edges) {
-      if (e.first == m_Header)
-        continue;
-
-      auto *exiting = const_cast<llvm::BasicBlock *>(e.first);
-      auto *exit = const_cast<llvm::BasicBlock *>(e.second);
-
-      llvm::outs() << exiting->getName() << "->" << exit->getName() << "\n";
-
-      exitingCommon = m_DT->findNearestCommonDominator(exiting, exitingCommon);
-
-      auto *exitCommon = m_DT->findNearestCommonDominator(exit, m_UnifiedExit);
-
-      if (m_CurLoop.contains(exitCommon))
-        m_DT->changeImmediateDominator((*m_DT)[exit], (*m_DT)[m_UnifiedExit]);
-    }
-
-    m_DT->changeImmediateDominator((*m_DT)[m_Latch], (*m_DT)[exitingCommon]);
   }
 
   updateExitEdges();
