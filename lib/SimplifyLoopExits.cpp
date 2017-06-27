@@ -135,6 +135,9 @@ void SimplifyLoopExits::transform(void) {
   if (m_DT)
     m_DT->recalculate(*(m_Header->getParent()));
 
+  assert(m_CurLoop.isLoopSimplifyForm() &&
+         "Pass did not preserve loop canonical for as expected!");
+
   std::error_code ec;
   llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
   m_Header->getParent()->print(dbg);
