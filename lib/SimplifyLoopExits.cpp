@@ -126,17 +126,19 @@ void SimplifyLoopExits::transform(void) {
   unified_exit_case_type initCase = 0;
   auto *exitSwitchVal =
       setExitSwitch(initCase, exitSwitch, m_Preheader->getTerminator());
-  auto *sleExit = createUnifiedExit(exitSwitch);
+  m_UnifiedExit = createUnifiedExit(exitSwitch);
 
-  auto oldHeader = createHeader(exitFlag, sleExit);
+  auto oldHeader = createHeader(exitFlag, m_UnifiedExit);
 
   demoteGeneratedValues();
 
   attachExitValues(exitFlag, exitSwitch);
   redirectExitingBlocksToLatch();
 
-  if (m_DT)
+  if (m_DT) {
+    m_DT->updateDFSNumbers();
     m_DT->print(llvm::outs());
+  }
 
   std::error_code ec;
   llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
@@ -387,15 +389,41 @@ void SimplifyLoopExits::demoteGeneratedValues() {
 }
 
 void SimplifyLoopExits::redirectExitingBlocksToLatch() {
+  assert(m_OldLatch && m_OldLatch != m_Latch &&
+         "New latch seesm to have not been attached yet!");
+
   for (auto e : m_Edges) {
     if (e.first == m_Header)
       continue;
 
-    auto ec = getExitCondition(m_CurLoop, e.first);
+    auto *exiting = const_cast<llvm::BasicBlock *>(e.first);
+    auto ec = getExitCondition(m_CurLoop, exiting);
 
-    auto *br = llvm::dyn_cast<llvm::BranchInst>(
-        const_cast<llvm::BasicBlock *>(e.first)->getTerminator());
+    auto *br = llvm::dyn_cast<llvm::BranchInst>(exiting->getTerminator());
     br->setSuccessor(!ec.first, m_Latch);
+  }
+
+  if (m_DT) {
+    auto *exitingCommon = m_Latch;
+
+    for (auto e : m_Edges) {
+      if (e.first == m_Header)
+        continue;
+
+      auto *exiting = const_cast<llvm::BasicBlock *>(e.first);
+      auto *exit = const_cast<llvm::BasicBlock *>(e.second);
+
+      llvm::outs() << exiting->getName() << "->" << exit->getName() << "\n";
+
+      exitingCommon = m_DT->findNearestCommonDominator(exiting, exitingCommon);
+
+      auto *exitCommon = m_DT->findNearestCommonDominator(exit, m_UnifiedExit);
+
+      if (m_CurLoop.contains(exitCommon))
+        m_DT->changeImmediateDominator((*m_DT)[exit], (*m_DT)[m_UnifiedExit]);
+    }
+
+    m_DT->changeImmediateDominator((*m_DT)[m_Latch], (*m_DT)[exitingCommon]);
   }
 
   updateExitEdges();

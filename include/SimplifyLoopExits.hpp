@@ -76,6 +76,7 @@ private:
   llvm::BasicBlock *m_OldHeader;
   llvm::BasicBlock *m_Latch;
   llvm::BasicBlock *m_OldLatch;
+  llvm::BasicBlock *m_UnifiedExit;
   // TODO use alias for vector element type
   llvm::SmallVector<
       std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>, 6> m_Edges;
