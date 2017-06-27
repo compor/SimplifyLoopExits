@@ -57,7 +57,7 @@
 #include <string>
 // using std::string
 
-#define DEBUG_TYPE "simplify-loop-exits"
+#define DEBUG_TYPE "simplify_loop_exits"
 
 // plugin registration for opt
 
