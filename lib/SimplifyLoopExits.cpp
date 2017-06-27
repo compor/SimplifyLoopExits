@@ -133,7 +133,7 @@ void SimplifyLoopExits::transform(void) {
   demoteGeneratedValues();
 
   attachExitValues(exitFlag, exitSwitch);
-  redirectExitsToLatch();
+  redirectExitingBlocksToLatch();
 
   if (m_DT)
     m_DT->print(llvm::outs());
@@ -386,7 +386,7 @@ void SimplifyLoopExits::demoteGeneratedValues() {
   return;
 }
 
-void SimplifyLoopExits::redirectExitsToLatch() {
+void SimplifyLoopExits::redirectExitingBlocksToLatch() {
   for (auto e : m_Edges) {
     if (e.first == m_Header)
       continue;

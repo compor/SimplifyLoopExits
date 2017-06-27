@@ -82,7 +82,7 @@ private:
 
   void updateExitEdges();
   void demoteGeneratedValues();
-  void redirectExitsToLatch();
+  void redirectExitingBlocksToLatch();
 };
 
 } // namespace icsa end
