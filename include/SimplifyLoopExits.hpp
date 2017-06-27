@@ -30,11 +30,13 @@ class Instruction;
 class raw_ostream;
 } // namespace llvm end
 
+namespace icsa {
+
+bool isLoopExitSimplifyForm(const llvm::Loop &CurLoop);
+
 std::pair<bool, llvm::BasicBlock *>
 getExitCondition(const llvm::Loop &CurLoop,
                  const llvm::BasicBlock *BB = nullptr);
-
-namespace icsa {
 
 class SimplifyLoopExits {
 public:
