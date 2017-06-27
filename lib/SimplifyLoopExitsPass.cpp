@@ -108,8 +108,8 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
     auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>(CurFunc).getLoopInfo();
     auto *CurLoop = *(LI.begin());
 
-    SimplifyLoopExits sle{LI, &DT};
-    changed |= sle.transform(*CurLoop);
+    SimplifyLoopExits sle;
+    changed |= sle.transform(*CurLoop, LI, &DT);
   }
 
   return changed;

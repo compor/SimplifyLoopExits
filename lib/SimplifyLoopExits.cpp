@@ -127,17 +127,14 @@ void DetectGeneratedValuesVisitor(const std::set<llvm::BasicBlock *> &Blocks,
   return;
 }
 
-SimplifyLoopExits::SimplifyLoopExits(llvm::LoopInfo &LI,
-                                     llvm::DominatorTree *DT)
-    : m_LI(LI), m_DT(DT), m_CurLoop(nullptr), m_Preheader(nullptr),
+SimplifyLoopExits::SimplifyLoopExits()
+    : m_LI(nullptr), m_DT(nullptr), m_CurLoop(nullptr), m_Preheader(nullptr),
       m_Header(nullptr), m_OldHeader(nullptr), m_Latch(nullptr),
       m_OldLatch(nullptr) {}
 
-bool SimplifyLoopExits::transform(llvm::Loop &CurLoop) {
-  auto found = std::find(m_LI.begin(), m_LI.end(), &CurLoop);
-  assert(found != m_LI.end() && "Loop does not belong to LoopInfo!");
-
-  init(CurLoop);
+bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
+                                  llvm::DominatorTree *DT) {
+  init(CurLoop, LI, DT);
 
   if (isLoopExitSimplifyForm(*m_CurLoop))
     return false;
@@ -241,7 +238,7 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
   auto *splitPt = m_Header->getFirstNonPHI();
   m_Header->setName("sle_header");
 
-  m_OldHeader = llvm::SplitBlock(m_Header, splitPt, m_DT, &m_LI);
+  m_OldHeader = llvm::SplitBlock(m_Header, splitPt, m_DT, m_LI);
   m_OldHeader->setName("old_header");
 
   auto *exitFlagVal =
@@ -271,7 +268,7 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
   RedirectDependentPHIsVisitor rlldpVisitor{*m_Latch, *sleLatch};
   rlldpVisitor.visit(m_Header);
 
-  m_CurLoop->addBasicBlockToLoop(sleLatch, m_LI);
+  m_CurLoop->addBasicBlockToLoop(sleLatch, *m_LI);
 
   m_OldLatch = m_Latch;
   m_Latch = sleLatch;
@@ -358,10 +355,21 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
 
 // private methods
 
-void SimplifyLoopExits::init(llvm::Loop &CurLoop) {
+void SimplifyLoopExits::init(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
+                             llvm::DominatorTree *DT) {
   assert(CurLoop.isLoopSimplifyForm() &&
          "Loop must be in loop simplify/canonical form!");
 
+  auto found = std::find(LI.begin(), LI.end(), &CurLoop);
+  assert(found != LI.end() && "Loop does not belong to LoopInfo!");
+
+  if (DT) {
+    assert(DT->getNode(CurLoop.getHeader()) &&
+           "Dominator tree does not contain loop header!");
+  }
+
+  m_LI = &LI;
+  m_DT = DT;
   m_CurLoop = &CurLoop;
   m_Preheader = m_CurLoop->getLoopPreheader();
   m_Header = m_CurLoop->getHeader();

@@ -44,9 +44,10 @@ public:
   unified_exit_case_type DefaultCase = 0;
 
 public:
-  SimplifyLoopExits(llvm::LoopInfo &LI, llvm::DominatorTree *DT = nullptr);
+  SimplifyLoopExits();
 
-  bool transform(llvm::Loop &CurLoop);
+  bool transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
+                 llvm::DominatorTree *DT = nullptr);
 
   llvm::Value *createExitFlag();
   llvm::Value *setExitFlag(bool On, llvm::Value *ExitFlag,
@@ -69,7 +70,7 @@ public:
   void attachExitValues(llvm::Value *ExitFlag, llvm::Value *ExitSwitch);
 
 private:
-  llvm::LoopInfo &m_LI;
+  llvm::LoopInfo *m_LI;
   llvm::DominatorTree *m_DT;
   llvm::Loop *m_CurLoop;
   llvm::BasicBlock *m_Preheader;
@@ -82,7 +83,8 @@ private:
   llvm::SmallVector<
       std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>, 6> m_Edges;
 
-  void init(llvm::Loop &CurLoop);
+  void init(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
+            llvm::DominatorTree *DT = nullptr);
   void updateExitEdges();
   void demoteGeneratedValues();
   void redirectExitingBlocksToLatch();
