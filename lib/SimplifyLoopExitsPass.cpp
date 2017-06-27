@@ -95,12 +95,6 @@ static llvm::RegisterStandardPasses
 
 //
 
-bool isLoopExitSimplifyForm(const llvm::Loop &CurLoop) {
-  return CurLoop.getHeader() == CurLoop.getExitingBlock();
-}
-
-//
-
 bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
   for (auto &CurFunc : M) {
     if (CurFunc.isDeclaration())

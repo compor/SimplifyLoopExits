@@ -47,7 +47,7 @@ public:
   SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
                     llvm::DominatorTree *DT = nullptr);
 
-  void transform(void);
+  bool transform(void);
 
   llvm::Value *createExitFlag();
   llvm::Value *setExitFlag(bool On, llvm::Value *ExitFlag,

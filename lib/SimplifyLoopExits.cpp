@@ -65,6 +65,37 @@ namespace icsa {
 constexpr auto unified_exit_case_type_bits =
     std::numeric_limits<SimplifyLoopExits::unified_exit_case_type>::digits;
 
+//
+
+bool isLoopExitSimplifyForm(const llvm::Loop &CurLoop) {
+  return CurLoop.getHeader() == CurLoop.getExitingBlock();
+}
+
+std::pair<bool, llvm::BasicBlock *>
+getExitCondition(const llvm::Loop &CurLoop, const llvm::BasicBlock *BB) {
+  auto term = BB ? BB->getTerminator() : CurLoop.getHeader()->getTerminator();
+
+  assert(CurLoop.contains(term->getParent()) &&
+         "Basic block must belong to loop!");
+
+  auto ec = std::make_pair(false, static_cast<llvm::BasicBlock *>(nullptr));
+
+  assert(term->getNumSuccessors() <= 2 &&
+         "Loop exiting block with more than 2 successors is not supported!");
+
+  if (!CurLoop.contains(term->getSuccessor(0))) {
+    ec.first = true;
+    ec.second = term->getSuccessor(0);
+  } else {
+    ec.first = false;
+    ec.second = term->getSuccessor(1);
+  }
+
+  return ec;
+}
+
+//
+
 struct RedirectDependentPHIsVisitor
     : public llvm::InstVisitor<RedirectDependentPHIsVisitor> {
   llvm::BasicBlock &m_Old, &m_New;
@@ -112,7 +143,10 @@ SimplifyLoopExits::SimplifyLoopExits(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
   return;
 }
 
-void SimplifyLoopExits::transform(void) {
+bool SimplifyLoopExits::transform(void) {
+  if (isLoopExitSimplifyForm(m_CurLoop))
+    return false;
+
   auto *exitFlag = createExitFlag();
   auto *exitFlagVal = setExitFlag(!getExitCondition(m_CurLoop).first, exitFlag,
                                   m_Preheader->getTerminator());
@@ -138,11 +172,14 @@ void SimplifyLoopExits::transform(void) {
   assert(m_CurLoop.isLoopSimplifyForm() &&
          "Pass did not preserve loop canonical for as expected!");
 
+  assert(isLoopExitSimplifyForm(m_CurLoop) &&
+         "Pass did not transform loop as expected!");
+
   std::error_code ec;
   llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
   m_Header->getParent()->print(dbg);
 
-  return;
+  return true;
 }
 
 llvm::Value *SimplifyLoopExits::createExitFlag() {
@@ -388,26 +425,3 @@ void SimplifyLoopExits::redirectExitingBlocksToLatch() {
 }
 
 } // namespace icsa end
-
-std::pair<bool, llvm::BasicBlock *>
-getExitCondition(const llvm::Loop &CurLoop, const llvm::BasicBlock *BB) {
-  auto term = BB ? BB->getTerminator() : CurLoop.getHeader()->getTerminator();
-
-  assert(CurLoop.contains(term->getParent()) &&
-         "Basic block must belong to loop!");
-
-  auto ec = std::make_pair(false, static_cast<llvm::BasicBlock *>(nullptr));
-
-  assert(term->getNumSuccessors() <= 2 &&
-         "Loop exiting block with more than 2 successors is not supported!");
-
-  if (!CurLoop.contains(term->getSuccessor(0))) {
-    ec.first = true;
-    ec.second = term->getSuccessor(0);
-  } else {
-    ec.first = false;
-    ec.second = term->getSuccessor(1);
-  }
-
-  return ec;
-}
