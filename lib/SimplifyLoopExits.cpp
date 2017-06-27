@@ -129,6 +129,9 @@ void SimplifyLoopExits::transform(void) {
   auto *sleExit = createUnifiedExit(exitSwitch);
 
   auto oldHeader = createHeader(exitFlag, sleExit);
+
+  demoteGeneratedValues();
+
   attachExitValues(exitFlag, exitSwitch);
   redirectExitsToLatch();
 
@@ -185,36 +188,6 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
 
   auto *sleBr = llvm::SwitchInst::Create(exitSwitchVal, hdrExit, m_Edges.size(),
                                          unifiedExit);
-
-  std::set<llvm::BasicBlock *> exits;
-  for (auto &e : m_Edges)
-    exits.insert(const_cast<llvm::BasicBlock *>(e.second));
-
-  std::set<llvm::Instruction *> generated;
-  std::set<llvm::BasicBlock *> blocks(m_CurLoop.getBlocks().begin(),
-                                      m_CurLoop.getBlocks().end());
-  DetectGeneratedValuesVisitor(blocks, generated);
-
-  for (auto &e : *m_OldLatch)
-    for (auto *u : e.users()) {
-      auto *i = llvm::dyn_cast<llvm::Instruction>(u);
-      if (i && i->getParent() != m_OldLatch &&
-          m_CurLoop.contains(i->getParent())) {
-        generated.insert(&e);
-        break;
-      }
-    }
-
-  // remove header phi because they are preserved
-  for (auto &e : *m_Header) {
-    auto *phi = llvm::dyn_cast<llvm::PHINode>(&e);
-    if (!phi)
-      break;
-    generated.erase(phi);
-  }
-
-  for (auto &e : generated)
-    llvm::DemoteRegToStack(*e, false, m_Preheader->getTerminator());
 
   unified_exit_case_type caseIdx = DefaultCase + 1;
 
@@ -375,6 +348,40 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
 void SimplifyLoopExits::updateExitEdges() {
   m_Edges.clear();
   m_CurLoop.getExitEdges(m_Edges);
+
+  return;
+}
+
+void SimplifyLoopExits::demoteGeneratedValues() {
+  std::set<llvm::Instruction *> generated;
+  std::set<llvm::BasicBlock *> blocks(m_CurLoop.getBlocks().begin(),
+                                      m_CurLoop.getBlocks().end());
+  DetectGeneratedValuesVisitor(blocks, generated);
+
+  // remove header phi because they are preserved
+  for (auto &e : *m_Header) {
+    auto *phi = llvm::dyn_cast<llvm::PHINode>(&e);
+    if (!phi)
+      break;
+    generated.erase(phi);
+  }
+
+  assert(m_OldLatch && "new latch node has not been created yet!");
+
+  // old latch block has its postdominance changed due to the new latch,
+  // so any generated values used elsewhere inside the loop need to be updated
+  for (auto &e : *m_OldLatch)
+    for (auto *u : e.users()) {
+      auto *i = llvm::dyn_cast<llvm::Instruction>(u);
+      if (i && i->getParent() != m_OldLatch &&
+          m_CurLoop.contains(i->getParent())) {
+        generated.insert(&e);
+        break;
+      }
+    }
+
+  for (auto &e : generated)
+    llvm::DemoteRegToStack(*e, false, m_Preheader->getTerminator());
 
   return;
 }
