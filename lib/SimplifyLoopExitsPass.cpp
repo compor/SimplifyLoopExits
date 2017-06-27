@@ -34,6 +34,9 @@
 // using llvm::PassManagerBuilder
 // using llvm::RegisterStandardPasses
 
+#include "llvm/Transforms/Scalar.h"
+// using char llvm::LoopInfoSimplifyID
+
 #include "llvm/Support/raw_ostream.h"
 // using llvm::raw_ostream
 
@@ -105,23 +108,6 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
 
     SimplifyLoopExits sle{*CurLoop, LI, &DT};
     sle.transform();
-
-    // auto *exitFlag = sle.createExitFlag(*CurLoop);
-    // auto *exitFlagVal =
-    // sle.setExitFlag(!sle.getExitConditionValue(*CurLoop), exitFlag,
-    // CurLoop->getLoopPreheader()->getTerminator());
-
-    // sle.createLoopLatch(*CurLoop);
-    // sle.attachExitFlag(*CurLoop, exitFlag);
-
-    // auto *exitSwitch = sle.createExitSwitchCond(*CurLoop);
-    // auto *exitSwitchVal = sle.setExitSwitchCond(
-    // static_cast<SimplifyLoopExits::unified_exit_case_type>(0), exitSwitch,
-    // CurLoop->getLoopPreheader()->getTerminator());
-
-    // auto loopExitEdges = sle.getEdges(*CurLoop);
-    // sle.attachExitValues(*CurLoop, exitFlag, exitSwitch, loopExitEdges);
-    // sle.attachExitBlock(*CurLoop, exitSwitch, loopExitEdges);
   }
 
   return false;
@@ -129,7 +115,10 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
 
 void SimplifyLoopExitsPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
   AU.addRequiredTransitive<llvm::DominatorTreeWrapperPass>();
+  AU.addPreserved<llvm::DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<llvm::LoopInfoWrapperPass>();
+  AU.addPreserved<llvm::LoopInfoWrapperPass>();
+  AU.addPreservedID(llvm::LoopSimplifyID);
 
   return;
 }
