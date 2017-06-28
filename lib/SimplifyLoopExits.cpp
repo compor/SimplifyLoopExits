@@ -50,7 +50,7 @@
 // using llvm::raw_ostream
 
 #include <algorithm>
-// using std::find
+// using std::any_of
 
 #include <limits>
 // using std::numeric_limits
@@ -118,13 +118,11 @@ void DetectGeneratedValuesVisitor(const std::set<llvm::BasicBlock *> &Blocks,
                                   std::set<llvm::Instruction *> &Generated) {
   for (auto &bb : Blocks)
     for (auto &inst : *bb)
-      for (auto *user : inst.users()) {
-        auto *uinst = llvm::dyn_cast<llvm::Instruction>(user);
-        if (uinst && Blocks.end() == Blocks.find(uinst->getParent())) {
-          Generated.insert(&inst);
-          break;
-        }
-      }
+      if (std::any_of(inst.user_begin(), inst.user_end(), [&](const auto &u) {
+            auto *inst = llvm::dyn_cast<llvm::Instruction>(u);
+            return inst && Blocks.end() == Blocks.find(inst->getParent());
+          }))
+        Generated.insert(&inst);
 
   return;
 }
@@ -362,8 +360,7 @@ void SimplifyLoopExits::init(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
   assert(CurLoop.isLoopSimplifyForm() &&
          "Loop must be in loop simplify/canonical form!");
 
-  auto found = std::find(LI.begin(), LI.end(), &CurLoop);
-  assert(found != LI.end() && "Loop does not belong to LoopInfo!");
+  assert(LI[CurLoop.getHeader()] && "Loop does not belong to LoopInfo!");
 
   if (DT) {
     assert(DT->getNode(CurLoop.getHeader()) &&
@@ -398,27 +395,22 @@ void SimplifyLoopExits::demoteGeneratedValues() {
                                       m_CurLoop->getBlocks().end());
   DetectGeneratedValuesVisitor(blocks, generated);
 
-  // remove header phi because they are preserved
-  for (auto &e : *m_Header) {
-    auto *phi = llvm::dyn_cast<llvm::PHINode>(&e);
-    if (!phi)
-      break;
-    generated.erase(phi);
-  }
+  // remove header phis because they are preserved
+  for (auto bi = m_Header->begin(), be = m_Header->end();
+       bi != be && llvm::dyn_cast<llvm::PHINode>(&*bi); ++bi)
+    generated.erase(&*bi);
 
   assert(m_OldLatch && "new latch node has not been created yet!");
 
   // old latch block has its postdominance changed due to the new latch,
   // so any generated values used elsewhere inside the loop need to be updated
   for (auto &e : *m_OldLatch)
-    for (auto *u : e.users()) {
-      auto *i = llvm::dyn_cast<llvm::Instruction>(u);
-      if (i && i->getParent() != m_OldLatch &&
-          m_CurLoop->contains(i->getParent())) {
-        generated.insert(&e);
-        break;
-      }
-    }
+    if (std::any_of(e.user_begin(), e.user_end(), [this](const auto &u) {
+          auto *inst = llvm::dyn_cast<llvm::Instruction>(u);
+          return inst && inst->getParent() != m_OldLatch &&
+                 m_CurLoop->contains(inst->getParent());
+        }))
+      generated.insert(&e);
 
   for (auto &e : generated)
     llvm::DemoteRegToStack(*e, false, m_Preheader->getTerminator());
