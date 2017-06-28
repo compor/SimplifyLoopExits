@@ -79,7 +79,7 @@ namespace icsa {
 namespace {
 
 using test_result_t =
-    boost::variant<bool, int, const char *, std::string, loop_exit_edge_t>;
+    boost::variant<bool, int, const char *, std::string>;
 using test_result_map = std::map<std::string, test_result_t>;
 
 class TestSimplifyLoopExits : public testing::Test {
@@ -157,8 +157,6 @@ public:
         const bool doesHdrExitOnTrue = sle.getExitConditionValue(*CurLoop);
         const auto &loopExitEdges = sle.getEdges(*CurLoop);
         loop_exit_target_t loopExitTargets{};
-
-        //llvm::outs() << loopExitEdges;
 
         std::for_each(std::begin(loopExitEdges), std::end(loopExitEdges),
                       [&loopExitTargets](const auto &e) {

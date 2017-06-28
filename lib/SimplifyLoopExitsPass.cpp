@@ -97,19 +97,40 @@ static llvm::RegisterStandardPasses
 
 bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
   bool changed = false;
+  llvm::SmallVector<llvm::Loop *, 16> workList;
+  SimplifyLoopExits sle;
 
   for (auto &CurFunc : M) {
     if (CurFunc.isDeclaration())
       continue;
 
+    auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>(CurFunc).getLoopInfo();
+    workList.clear();
+    workList.append(&*(LI.begin()), &*(LI.end()));
+
+    for (auto i = 0; i < workList.size(); ++i)
+      for (auto &e : workList[i]->getSubLoops())
+        workList.push_back(e);
+
+    std::reverse(workList.begin(), workList.end());
+
+    assert(std::all_of(workList.begin(), workList.end(), [](const auto &e) {
+             return e->isLoopSimplifyForm();
+           }) && "Loops are not in loop simplify form!");
+
+    workList.erase(
+        std::remove_if(workList.begin(), workList.end(), [](const auto *e) {
+          return isLoopExitSimplifyForm(*e);
+        }), workList.end());
+
+    if (workList.empty())
+      continue;
+
     auto &DT =
         getAnalysis<llvm::DominatorTreeWrapperPass>(CurFunc).getDomTree();
 
-    auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>(CurFunc).getLoopInfo();
-    auto *CurLoop = *(LI.begin());
-
-    SimplifyLoopExits sle;
-    changed |= sle.transform(*CurLoop, LI, &DT);
+    for (auto *e : workList)
+      changed |= sle.transform(*e, LI, &DT);
   }
 
   return changed;
