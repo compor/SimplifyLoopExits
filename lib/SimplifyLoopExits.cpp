@@ -258,6 +258,19 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
 llvm::BasicBlock *SimplifyLoopExits::createLatch() {
   auto &curCtx = m_Header->getContext();
 
+  llvm::SmallVector<llvm::Metadata *, 4> newMDs;
+  llvm::MDNode *newLoopID = nullptr;
+  newMDs.push_back(nullptr);
+  auto loopID = m_CurLoop->getLoopID();
+
+  if (loopID) {
+    for (auto i = 1; i < loopID->getNumOperands(); ++i)
+      newMDs.push_back(loopID->getOperand(i));
+
+    newLoopID = llvm::MDNode::get(curCtx, newMDs);
+    newLoopID->replaceOperandWith(0, newLoopID);
+  }
+
   auto sleLatch =
       llvm::BasicBlock::Create(curCtx, "sle_latch", m_Header->getParent());
 
@@ -272,6 +285,9 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
 
   m_OldLatch = m_Latch;
   m_Latch = sleLatch;
+
+  if(newLoopID)
+    m_CurLoop->setLoopID(newLoopID);
 
   return sleLatch;
 }
