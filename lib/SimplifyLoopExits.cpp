@@ -213,6 +213,10 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
     sleBr->addCase(caseVal, const_cast<llvm::BasicBlock *>(eit->second));
   }
 
+  auto *parentLoop = m_CurLoop->getParentLoop();
+  if (parentLoop)
+    parentLoop->addBasicBlockToLoop(unifiedExit, *m_LI);
+
   return unifiedExit;
 }
 
