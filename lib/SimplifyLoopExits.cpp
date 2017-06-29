@@ -118,10 +118,10 @@ SimplifyLoopExits::SimplifyLoopExits()
 
 bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
                                   llvm::DominatorTree *DT) {
-  init(CurLoop, LI, DT);
-
-  if (isLoopExitSimplifyForm(*m_CurLoop))
+  if (isLoopExitSimplifyForm(CurLoop))
     return false;
+
+  init(CurLoop, LI, DT);
 
   auto *exitFlag = createExitFlag();
   auto *exitFlagVal = setExitFlag(!getExitCondition(*m_CurLoop).first, exitFlag,
