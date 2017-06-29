@@ -80,8 +80,8 @@ private:
   llvm::SmallVector<
       std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>, 6> m_Edges;
 
-  void init(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
-            llvm::DominatorTree *DT = nullptr);
+  inline void init(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
+                   llvm::DominatorTree *DT = nullptr);
   void updateExitEdges();
   void demoteGeneratedValues();
   void redirectExitingBlocksToLatch();

@@ -98,22 +98,6 @@ getExitCondition(const llvm::Loop &CurLoop, const llvm::BasicBlock *BB) {
 
 //
 
-struct RedirectDependentPHIsVisitor
-    : public llvm::InstVisitor<RedirectDependentPHIsVisitor> {
-  llvm::BasicBlock &m_Old, &m_New;
-
-  RedirectDependentPHIsVisitor(llvm::BasicBlock &Old, llvm::BasicBlock &New)
-      : m_Old(Old), m_New(New) {}
-
-  void visitPHI(llvm::PHINode &I) {
-    int n = -1;
-    while ((n = I.getBasicBlockIndex(&m_Old)) >= 0)
-      I.setIncomingBlock(n, &m_New);
-
-    return;
-  }
-};
-
 void DetectGeneratedValuesVisitor(const std::set<llvm::BasicBlock *> &Blocks,
                                   std::set<llvm::Instruction *> &Generated) {
   for (auto &bb : Blocks)
@@ -236,9 +220,9 @@ llvm::BasicBlock *
 SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
                                 llvm::BasicBlock *UnifiedExit) {
   auto *splitPt = m_Header->getFirstNonPHI();
-  m_Header->setName("sle_header");
-
   m_OldHeader = llvm::SplitBlock(m_Header, splitPt, m_DT, m_LI);
+
+  m_Header->setName("sle_header");
   m_OldHeader->setName("old_header");
 
   auto *exitFlagVal =
@@ -256,40 +240,15 @@ SimplifyLoopExits::createHeader(llvm::Value *ExitFlag,
 }
 
 llvm::BasicBlock *SimplifyLoopExits::createLatch() {
-  auto &curCtx = m_Header->getContext();
-
-  llvm::SmallVector<llvm::Metadata *, 4> newMDs;
-  llvm::MDNode *newLoopID = nullptr;
-  newMDs.push_back(nullptr);
-  auto loopID = m_CurLoop->getLoopID();
-
-  if (loopID) {
-    for (auto i = 1; i < loopID->getNumOperands(); ++i)
-      newMDs.push_back(loopID->getOperand(i));
-
-    newLoopID = llvm::MDNode::get(curCtx, newMDs);
-    newLoopID->replaceOperandWith(0, newLoopID);
-  }
-
-  auto sleLatch =
-      llvm::BasicBlock::Create(curCtx, "sle_latch", m_Header->getParent());
-
-  auto *sleLatchBr = llvm::BranchInst::Create(m_Header, sleLatch);
-  auto *latchBr = llvm::dyn_cast<llvm::BranchInst>(m_Latch->getTerminator());
-  latchBr->setSuccessor(0, sleLatch);
-
-  RedirectDependentPHIsVisitor rlldpVisitor{*m_Latch, *sleLatch};
-  rlldpVisitor.visit(m_Header);
-
-  m_CurLoop->addBasicBlockToLoop(sleLatch, *m_LI);
+  auto *splitPt = m_Latch->getTerminator();
 
   m_OldLatch = m_Latch;
-  m_Latch = sleLatch;
+  m_Latch = llvm::SplitBlock(m_OldLatch, splitPt, m_DT, m_LI);
 
-  if(newLoopID)
-    m_CurLoop->setLoopID(newLoopID);
+  m_Latch->setName("sle_latch");
+  m_OldLatch->setName("old_latch");
 
-  return sleLatch;
+  return m_Latch;
 }
 
 llvm::Value *SimplifyLoopExits::createExitSwitch() {
