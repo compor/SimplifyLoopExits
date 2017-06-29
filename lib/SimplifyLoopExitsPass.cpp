@@ -4,8 +4,6 @@
 
 #include "Config.hpp"
 
-#include "BWList.hpp"
-
 #include "SimplifyLoopExits.hpp"
 
 #include "SimplifyLoopExitsPass.hpp"
