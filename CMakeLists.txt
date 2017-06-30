@@ -91,12 +91,14 @@ endif()
 
 # dependencies
 
-find_package(AnnotateLoops CONFIG)
+#find_package(Foo CONFIG)
 
-if(NOT AnnotateLoops_FOUND)
-  message(WARNING "package AnnotateLoops was not found")
-endif()
-
+#if(Foo_FOUND)
+  #set(${PRJ_NAME_UPPER}_USES_FOO 1)
+#else()
+  #set(${PRJ_NAME_UPPER}_USES_FOO 0)
+  #message(WARNING "package Foo was not found; skipping.")
+#endif()
 
 #
 
@@ -126,16 +128,12 @@ endif()
 #llvm_map_components_to_libnames(llvm_libs core support analysis ipo passes)
 #target_link_libraries(${LIB_NAME} PUBLIC ${llvm_libs})
 
-if(AnnotateLoops_FOUND)
-  target_link_libraries(${LIB_NAME} PUBLIC LLVMAnnotateLoopsPass)
+if(Foo_FOUND)
+  target_link_libraries(${LIB_NAME} PUBLIC Foo)
 endif()
 
 target_compile_definitions(${LIB_NAME} PUBLIC ${LLVM_DEFINITIONS})
 target_compile_definitions(${LIB_NAME} PRIVATE VERSION_STRING=${PRJ_VERSION})
-
-if(AnnotateLoops_FOUND)
-  target_compile_definitions(${LIB_NAME} PUBLIC USE_ANNOTATELOOPS)
-endif()
 
 target_include_directories(${LIB_NAME} PUBLIC ${LLVM_INCLUDE_DIRS})
 target_include_directories(${LIB_NAME} PUBLIC
@@ -182,6 +180,10 @@ set(PRJ_CONFIG_HEADER_FILE "Config.hpp")
 set(PRJ_CMAKE_CONFIG_FILE "config.cmake")
 
 set(DEPENDEE "")
+
+if(Foo_FOUND)
+  list(APPEND DEPENDEE ${FOO_LIB_DIR}${TRGT_PREFIX}${FOO_LIB}${TRGT_SUFFIX})
+endif()
 
 if(NOT PRJ_STANDALONE_BUILD)
   set(PRJ_INSTALL_INCLUDE_DIR ${PRJ_NAME}${PRJ_INSTALL_INCLUDE_DIR})
