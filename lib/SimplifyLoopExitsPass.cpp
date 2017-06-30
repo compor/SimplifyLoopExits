@@ -103,6 +103,9 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
       continue;
 
     auto &LI = getAnalysis<llvm::LoopInfoWrapperPass>(CurFunc).getLoopInfo();
+    auto &DT =
+        getAnalysis<llvm::DominatorTreeWrapperPass>(CurFunc).getDomTree();
+
     workList.clear();
     workList.append(&*(LI.begin()), &*(LI.end()));
 
@@ -123,9 +126,6 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
 
     if (workList.empty())
       continue;
-
-    auto &DT =
-        getAnalysis<llvm::DominatorTreeWrapperPass>(CurFunc).getDomTree();
 
     for (auto *e : workList)
       changed |= sle.transform(*e, LI, &DT);
