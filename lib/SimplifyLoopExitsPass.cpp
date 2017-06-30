@@ -35,6 +35,9 @@
 #include "llvm/Transforms/Scalar.h"
 // using char llvm::LoopInfoSimplifyID
 
+#include "llvm/ADT/Statistic.h"
+// using STATISTIC macro
+
 #include "llvm/Support/raw_ostream.h"
 // using llvm::raw_ostream
 
@@ -56,6 +59,8 @@
 // using std::string
 
 #define DEBUG_TYPE "simplify_loop_exits"
+
+STATISTIC(NumExitsSimplifiedLoops, "Number of loops that had exits simplified");
 
 // plugin registration for opt
 
@@ -94,7 +99,7 @@ static llvm::RegisterStandardPasses
 //
 
 bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
-  bool changed = false;
+  bool hasModuleChanged = false;
   llvm::SmallVector<llvm::Loop *, 16> workList;
   SimplifyLoopExits sle;
 
@@ -127,11 +132,16 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
     if (workList.empty())
       continue;
 
-    for (auto *e : workList)
-      changed |= sle.transform(*e, LI, &DT);
+    for (auto *e : workList) {
+      bool changed = sle.transform(*e, LI, &DT);
+
+      hasModuleChanged |= changed;
+      if (changed)
+        NumExitsSimplifiedLoops++;
+    }
   }
 
-  return changed;
+  return hasModuleChanged;
 }
 
 void SimplifyLoopExitsPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
