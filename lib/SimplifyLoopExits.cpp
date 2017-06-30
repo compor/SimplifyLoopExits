@@ -4,6 +4,8 @@
 
 #include "SimplifyLoopExits.hpp"
 
+#include "Utils.hpp"
+
 #include "llvm/IR/Dominators.h"
 // using llvm::DominatorTree
 
@@ -42,8 +44,8 @@
 #include "llvm/Support/Casting.h"
 // using llvm::dyn_cast
 
+// TODO remove this include
 #include "llvm/Support/raw_ostream.h"
-// using llvm::raw_ostream
 
 #include <algorithm>
 // using std::any_of
@@ -53,10 +55,6 @@
 
 #include <cassert>
 // using assert
-
-// TODO remove this
-#include "llvm/Support/FileSystem.h"
-// using llvm::sys::fs::OpenFlags
 
 namespace icsa {
 
@@ -141,15 +139,13 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
   if (m_DT)
     m_DT->recalculate(*(m_Header->getParent()));
 
-  assert(m_CurLoop->isLoopSimplifyForm() &&
+  assert((m_CurLoop->isLoopSimplifyForm() ||
+          dumpFunction(m_Header->getParent())) &&
          "Pass did not preserve loop canonical for as expected!");
 
-  assert(isLoopExitSimplifyForm(*m_CurLoop) &&
-         "Pass did not transform loop as expected!");
-
-  std::error_code ec;
-  llvm::raw_fd_ostream dbg("dbg.ll", ec, llvm::sys::fs::F_Text);
-  m_Header->getParent()->print(dbg);
+  assert((isLoopExitSimplifyForm(*m_CurLoop) ||
+         dumpFunction(m_Header->getParent())) &&
+             "Pass did not transform loop as expected!");
 
   return true;
 }
@@ -292,7 +288,8 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
            "Loop exiting block with more than 2 successors is not supported!");
 
     auto *br = llvm::dyn_cast<llvm::BranchInst>(term);
-    assert(br && "Loop exiting block terminator must be a branch instruction!");
+    assert((br || dumpFunction(m_Header->getParent())) &&
+           "Loop exiting block terminator must be a branch instruction!");
 
     auto cond1FlagVal = exitCond ? false : true;
     auto cond2FlagVal = !cond1FlagVal;
@@ -395,7 +392,7 @@ void SimplifyLoopExits::demoteGeneratedValues() {
 
 void SimplifyLoopExits::redirectExitingBlocksToLatch() {
   assert(m_OldLatch && m_OldLatch != m_Latch &&
-         "New latch seesm to have not been attached yet!");
+         "New latch seems to have not been attached yet!");
 
   for (auto e : m_Edges) {
     if (e.first == m_Header)
