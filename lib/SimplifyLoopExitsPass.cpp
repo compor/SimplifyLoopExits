@@ -4,6 +4,8 @@
 
 #include "Config.hpp"
 
+#include "Utils.hpp"
+
 #include "SimplifyLoopExits.hpp"
 
 #include "SimplifyLoopExitsPass.hpp"
@@ -128,6 +130,13 @@ static llvm::cl::opt<unsigned int> LoopExitingDepthLB(
 static llvm::cl::opt<std::string> ReportStatsFilename(
     "sle-stats", llvm::cl::desc("simplify loop exits stats report filename"));
 
+#if SIMPLIFYLOOPEXITS_DEBUG
+bool passDebugFlag = false;
+static llvm::cl::opt<bool, true>
+    Debug("sle-debug", llvm::cl::desc("enable debug for simplify loop exits"),
+          llvm::cl::location(passDebugFlag));
+#endif // SIMPLIFYLOOPEXITS_DEBUG
+
 namespace {
 
 void checkCmdLineOptions(void) {
@@ -175,8 +184,8 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
           return d >= LoopDepthLB && d <= LoopDepthUB;
         }), workList.end());
 
-    // remove any loops that their exiting blocks are outside of the specified
-    // loop next levels
+    // remove any loops that their exiting blocks are outside of the
+    // specified loop next levels
     workList.erase(
         std::remove_if(workList.begin(), workList.end(), [&LI](const auto *e) {
           llvm::SmallVector<llvm::BasicBlock *, 5> exiting;

@@ -16,6 +16,7 @@ include(HandleLLVMDependency)
 
 option(PRJ_USE_LLVM_INTERNAL_MODULE TRUE)
 option(PRJ_SKIP_TESTS TRUE)
+option(PRJ_DEBUG FALSE)
 
 get_version(VERSION PRJ_VERSION)
 
