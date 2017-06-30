@@ -54,6 +54,9 @@
 // using DEBUG macro
 // using llvm::dbgs
 
+#include <algorithm>
+// using std::any_of
+
 #include <limits>
 // using std::numeric_limits
 
@@ -108,23 +111,23 @@ static llvm::RegisterStandardPasses
 //
 
 static llvm::cl::opt<unsigned int>
-    LoopDepthUB("sle-loop-depth-ub",
-                llvm::cl::desc("loop depth upper bound (inclusive)"),
+    LoopDepthLB("sle-loop-depth-lb",
+                llvm::cl::desc("loop depth lower bound (inclusive)"),
                 llvm::cl::init(1u));
 
 static llvm::cl::opt<unsigned int>
-    LoopDepthLB("sle-loop-depth-lb",
-                llvm::cl::desc("loop depth lower bound (inclusive)"),
+    LoopDepthUB("sle-loop-depth-ub",
+                llvm::cl::desc("loop depth upper bound (inclusive)"),
                 llvm::cl::init(std::numeric_limits<unsigned>::max()));
-
-static llvm::cl::opt<unsigned int> LoopExitingBlockDepthUB(
-    "sle-loop-exiting-block-depth-ub",
-    llvm::cl::desc("loop exiting block depth upper bound (inclusive)"),
-    llvm::cl::init(1u));
 
 static llvm::cl::opt<unsigned int> LoopExitingBlockDepthLB(
     "sle-loop-exiting-block-depth-lb",
     llvm::cl::desc("loop exiting block depth lower bound (inclusive)"),
+    llvm::cl::init(1u));
+
+static llvm::cl::opt<unsigned int> LoopExitingBlockDepthUB(
+    "sle-loop-exiting-block-depth-ub",
+    llvm::cl::desc("loop exiting block depth upper bound (inclusive)"),
     llvm::cl::init(std::numeric_limits<unsigned>::max()));
 
 static llvm::cl::opt<std::string> ReportStatsFilename(
@@ -143,10 +146,10 @@ void checkCmdLineOptions(void) {
   assert(LoopDepthLB && LoopDepthUB && LoopExitingBlockDepthLB &&
          LoopExitingBlockDepthUB && "Loop depth bounds cannot be zero!");
 
-  assert(LoopDepthLB > LoopDepthUB &&
+  assert(LoopDepthLB <= LoopDepthUB &&
          "Loop depth lower bound cannot be greater that upper!");
 
-  assert(LoopExitingBlockDepthLB > LoopExitingBlockDepthUB &&
+  assert(LoopExitingBlockDepthLB <= LoopExitingBlockDepthUB &&
          "Loop exiting block depth lower bound cannot be greater that upper!");
 
   return;
@@ -181,7 +184,7 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
     workList.erase(
         std::remove_if(workList.begin(), workList.end(), [](const auto *e) {
           auto d = e->getLoopDepth();
-          return d >= LoopDepthLB && d <= LoopDepthUB;
+          return d < LoopDepthLB || d > LoopDepthUB;
         }), workList.end());
 
     // remove any loops that their exiting blocks are outside of the
