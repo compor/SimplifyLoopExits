@@ -292,7 +292,7 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
            "Loop exiting block with more than 2 successors is not supported!");
 
     auto *br = llvm::dyn_cast<llvm::BranchInst>(term);
-    assert(br && "Loop exiting block must be a branch instruction!");
+    assert(br && "Loop exiting block terminator must be a branch instruction!");
 
     auto cond1FlagVal = exitCond ? false : true;
     auto cond2FlagVal = !cond1FlagVal;
