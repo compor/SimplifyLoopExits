@@ -139,7 +139,7 @@ void SimplifyLoopExitsPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
   AU.addPreserved<llvm::DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<llvm::LoopInfoWrapperPass>();
   AU.addPreserved<llvm::LoopInfoWrapperPass>();
-  AU.addRequiredID(llvm::LoopSimplifyID);
+  AU.addRequiredTransitiveID(llvm::LoopSimplifyID);
   AU.addPreservedID(llvm::LoopSimplifyID);
 
   return;
