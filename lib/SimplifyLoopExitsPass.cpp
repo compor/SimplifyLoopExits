@@ -125,14 +125,31 @@ static llvm::cl::opt<unsigned int> LoopExitingDepthLB(
     llvm::cl::desc("loop exiting depth lower bound (inclusive)"),
     llvm::cl::init(std::numeric_limits<unsigned>::max()));
 
-//
-
 static llvm::cl::opt<std::string> ReportStatsFilename(
     "sle-stats", llvm::cl::desc("simplify loop exits stats report filename"));
+
+namespace {
+
+void checkCmdLineOptions(void) {
+  assert(LoopDepthLB && LoopDepthUB && LoopExitingDepthLB &&
+         LoopExitingDepthUB && "Loop depth bounds cannot be zero!");
+
+  assert(LoopDepthLB > LoopDepthUB &&
+         "Loop depth lower bound cannot be less that upper!");
+
+  assert(LoopExitingDepthLB > LoopExitingDepthUB &&
+         "Loop exiting block lower bound depth cannot be less that upper!");
+
+  return;
+}
+
+} // namespace anonymous end
 
 //
 
 bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
+  checkCmdLineOptions();
+
   bool hasModuleChanged = false;
   llvm::SmallVector<llvm::Loop *, 16> workList;
   SimplifyLoopExits sle;
