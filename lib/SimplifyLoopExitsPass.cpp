@@ -117,14 +117,14 @@ static llvm::cl::opt<unsigned int>
                 llvm::cl::desc("loop depth lower bound (inclusive)"),
                 llvm::cl::init(std::numeric_limits<unsigned>::max()));
 
-static llvm::cl::opt<unsigned int> LoopExitingDepthUB(
-    "sle-loop-exiting-depth-ub",
-    llvm::cl::desc("loop exiting depth upper bound (inclusive)"),
+static llvm::cl::opt<unsigned int> LoopExitingBlockDepthUB(
+    "sle-loop-exiting-block-depth-ub",
+    llvm::cl::desc("loop exiting block depth upper bound (inclusive)"),
     llvm::cl::init(1u));
 
-static llvm::cl::opt<unsigned int> LoopExitingDepthLB(
-    "sle-loop-exiting-depth-lb",
-    llvm::cl::desc("loop exiting depth lower bound (inclusive)"),
+static llvm::cl::opt<unsigned int> LoopExitingBlockDepthLB(
+    "sle-loop-exiting-block-depth-lb",
+    llvm::cl::desc("loop exiting block depth lower bound (inclusive)"),
     llvm::cl::init(std::numeric_limits<unsigned>::max()));
 
 static llvm::cl::opt<std::string> ReportStatsFilename(
@@ -140,14 +140,14 @@ static llvm::cl::opt<bool, true>
 namespace {
 
 void checkCmdLineOptions(void) {
-  assert(LoopDepthLB && LoopDepthUB && LoopExitingDepthLB &&
-         LoopExitingDepthUB && "Loop depth bounds cannot be zero!");
+  assert(LoopDepthLB && LoopDepthUB && LoopExitingBlockDepthLB &&
+         LoopExitingBlockDepthUB && "Loop depth bounds cannot be zero!");
 
   assert(LoopDepthLB > LoopDepthUB &&
-         "Loop depth lower bound cannot be less that upper!");
+         "Loop depth lower bound cannot be greater that upper!");
 
-  assert(LoopExitingDepthLB > LoopExitingDepthUB &&
-         "Loop exiting block lower bound depth cannot be less that upper!");
+  assert(LoopExitingBlockDepthLB > LoopExitingBlockDepthUB &&
+         "Loop exiting block depth lower bound cannot be greater that upper!");
 
   return;
 }
@@ -191,11 +191,12 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
           llvm::SmallVector<llvm::BasicBlock *, 5> exiting;
           e->getExitingBlocks(exiting);
 
-          return std::any_of(
-              exiting.begin(), exiting.end(), [&LI](const auto *x) {
-                auto d = LI[x]->getLoopDepth();
-                return d < LoopExitingDepthLB || d > LoopExitingDepthUB;
-              });
+          return std::any_of(exiting.begin(), exiting.end(),
+                             [&LI](const auto *x) {
+                               auto d = LI[x]->getLoopDepth();
+                               return d < LoopExitingBlockDepthLB ||
+                                      d > LoopExitingBlockDepthUB;
+                             });
         }), workList.end());
 
     workList.erase(
