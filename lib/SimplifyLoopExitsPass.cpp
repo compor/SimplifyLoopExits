@@ -63,7 +63,11 @@
 
 #define DEBUG_TYPE "simplify_loop_exits"
 
+#ifdef LLVM_ENABLE_STATS
 STATISTIC(NumExitsSimplifiedLoops, "Number of loops that had exits simplified");
+#else
+static unsigned NumExitsSimplifiedLoops = 0;
+#endif
 
 // plugin registration for opt
 
