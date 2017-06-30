@@ -52,6 +52,9 @@
 // using DEBUG macro
 // using llvm::dbgs
 
+#include <limits>
+// using std::numeric_limits
+
 #include <fstream>
 // using std::ifstream
 
@@ -95,6 +98,33 @@ static void registerSimplifyLoopExits(const llvm::PassManagerBuilder &Builder,
 static llvm::RegisterStandardPasses
     RegisterSimplifyLoopExits(llvm::PassManagerBuilder::EP_EarlyAsPossible,
                               registerSimplifyLoopExits);
+
+//
+
+static llvm::cl::opt<unsigned int>
+    LoopDepthUB("sle-loop-depth-ub",
+                llvm::cl::desc("loop depth upper bound (inclusive)"),
+                llvm::cl::init(1u));
+
+static llvm::cl::opt<unsigned int>
+    LoopDepthLB("sle-loop-depth-lb",
+                llvm::cl::desc("loop depth lower bound (inclusive)"),
+                llvm::cl::init(std::numeric_limits<unsigned>::max()));
+
+static llvm::cl::opt<unsigned int> LoopExitingDepthUB(
+    "sle-loop-exiting-depth-ub",
+    llvm::cl::desc("loop exiting depth upper bound (inclusive)"),
+    llvm::cl::init(1u));
+
+static llvm::cl::opt<unsigned int> LoopExitingDepthLB(
+    "sle-loop-exiting-depth-lb",
+    llvm::cl::desc("loop exiting depth lower bound (inclusive)"),
+    llvm::cl::init(std::numeric_limits<unsigned>::max()));
+
+//
+
+static llvm::cl::opt<std::string> ReportStatsFilename(
+    "sle-stats", llvm::cl::desc("simplify loop exits stats report filename"));
 
 //
 
