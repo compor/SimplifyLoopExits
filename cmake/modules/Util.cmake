@@ -24,14 +24,9 @@ function(get_version)
   execute_process(COMMAND git describe --tags --always ${cmd_arg}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     OUTPUT_VARIABLE ver
-    RESULT_VARIABLE err
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-  if(err)
-    set(${get_version_VERSION} "0.0.0" PARENT_SCOPE)
-  else()
     set(${get_version_VERSION} "${ver}" PARENT_SCOPE)
-  endif()
 endfunction()
 
 

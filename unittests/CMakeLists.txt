@@ -39,7 +39,9 @@ foreach(prj_test_name ${PRJ_TEST_NAMES})
   target_include_directories(${prj_test_name} PUBLIC ${LLVM_INCLUDE_DIRS})
   target_include_directories(${prj_test_name} PUBLIC ${Boost_INCLUDE_DIRS})
   target_include_directories(${prj_test_name} PUBLIC 
-    "${CMAKE_SOURCE_DIR}/include")
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>)
+  target_include_directories(${prj_test_name} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 
   target_link_libraries(${prj_test_name} PUBLIC ${GTEST_BOTH_LIBRARIES})  
   target_link_libraries(${prj_test_name} PUBLIC ${CMAKE_THREAD_LIBS_INIT})  

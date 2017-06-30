@@ -20,6 +20,7 @@ option(PRJ_SKIP_TESTS TRUE)
 get_version(VERSION PRJ_VERSION)
 
 set(PRJ_NAME SimplifyLoopExits)
+string(TOUPPER ${PRJ_NAME} PRJ_NAME_UPPER)
 
 # part of LLVM or standalone
 set(PRJ_STANDALONE_BUILD FALSE)
@@ -142,6 +143,8 @@ target_include_directories(${LIB_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>)
 target_include_directories(${LIB_NAME} PUBLIC
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>)
+target_include_directories(${LIB_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 
 #
 
@@ -194,8 +197,7 @@ set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/include/${PRJ_CONFIG_HEADER_FILE}.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/include/${PRJ_CONFIG_HEADER_FILE}"
-  @ONLY)
+  "${CMAKE_CURRENT_BINARY_DIR}/include/${PRJ_CONFIG_HEADER_FILE}")
 
 string(TOLOWER ${PRJ_NAME} PRJ_NAME_LOWER)
 configure_file(
