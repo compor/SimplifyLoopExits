@@ -152,16 +152,36 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
       for (auto &e : workList[i]->getSubLoops())
         workList.push_back(e);
 
-    std::reverse(workList.begin(), workList.end());
+    workList.erase(
+        std::remove_if(workList.begin(), workList.end(), [](const auto *e) {
+          auto d = e->getLoopDepth();
+          return d >= LoopDepthLB && d <= LoopDepthUB;
+        }), workList.end());
 
-    assert(std::all_of(workList.begin(), workList.end(), [](const auto &e) {
-             return e->isLoopSimplifyForm();
-           }) && "Loops are not in loop simplify form!");
+    // remove any loops that their exiting blocks are outside of the specified
+    // loop next levels
+    workList.erase(
+        std::remove_if(workList.begin(), workList.end(), [&LI](const auto *e) {
+          llvm::SmallVector<llvm::BasicBlock *, 5> exiting;
+          e->getExitingBlocks(exiting);
+
+          return std::any_of(
+              exiting.begin(), exiting.end(), [&LI](const auto *x) {
+                auto d = LI[x]->getLoopDepth();
+                return d < LoopExitingDepthLB || d > LoopExitingDepthUB;
+              });
+        }), workList.end());
 
     workList.erase(
         std::remove_if(workList.begin(), workList.end(), [](const auto *e) {
           return isLoopExitSimplifyForm(*e);
         }), workList.end());
+
+    std::reverse(workList.begin(), workList.end());
+
+    assert(std::all_of(workList.begin(), workList.end(), [](const auto &e) {
+             return e->isLoopSimplifyForm();
+           }) && "Loops are not in loop simplify form!");
 
     if (workList.empty())
       continue;
