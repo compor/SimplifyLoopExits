@@ -5,6 +5,11 @@
 #ifndef SIMPLIFYLOOPEXITS_HPP
 #define SIMPLIFYLOOPEXITS_HPP
 
+#include "llvm/Analysis/LoopInfo.h"
+// using llvm::LoopBase::Edge
+// using llvm::Loop
+// using llvm::LoopInfo
+
 #include "llvm/ADT/SmallVector.h"
 // using llvm::SmallVector
 
@@ -76,9 +81,8 @@ private:
   llvm::BasicBlock *m_Latch;
   llvm::BasicBlock *m_OldLatch;
   llvm::BasicBlock *m_UnifiedExit;
-  // TODO use alias for vector element type
-  llvm::SmallVector<
-      std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>, 6> m_Edges;
+
+  llvm::SmallVector<llvm::Loop::Edge, 6> m_Edges;
 
   inline void init(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
                    llvm::DominatorTree *DT = nullptr);

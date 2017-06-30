@@ -33,18 +33,14 @@
 #include "llvm/IR/InstVisitor.h"
 // using llvm::InstVisitor
 
-#include "llvm/Analysis/LoopInfo.h"
-// using llvm::Loop
-// using llvm::LoopInfo
-
-#include "llvm/Support/Casting.h"
-// using llvm::dyn_cast
-
 #include "llvm/Transforms/Utils/Local.h"
 // using llvm::DemoteRegToStack
 
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 // using llvm::SplitBlock
+
+#include "llvm/Support/Casting.h"
+// using llvm::dyn_cast
 
 #include "llvm/Support/raw_ostream.h"
 // using llvm::raw_ostream
