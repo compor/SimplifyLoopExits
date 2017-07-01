@@ -37,6 +37,9 @@
 #include "llvm/Transforms/Scalar.h"
 // using char llvm::LoopInfoSimplifyID
 
+#include "llvm/ADT/SmallVector.h"
+// using llvm::SmallVector
+
 #include "llvm/ADT/Statistic.h"
 // using STATISTIC macro
 
@@ -164,7 +167,7 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
   checkCmdLineOptions();
 
   bool hasModuleChanged = false;
-  llvm::SmallVector<llvm::Loop *, 16> workList;
+  llvm::SmallVector<llvm::Loop *, 32> workList;
   SimplifyLoopExits sle;
 
   for (auto &CurFunc : M) {
