@@ -46,6 +46,7 @@
 #include "llvm/Support/CommandLine.h"
 // using llvm::cl::opt
 // using llvm::cl::desc
+// using llvm::cl::location
 
 #include "llvm/Support/FileSystem.h"
 // using llvm::sys::fs::OpenFlags
@@ -136,7 +137,7 @@ static llvm::cl::opt<std::string> ReportStatsFilename(
 #if SIMPLIFYLOOPEXITS_DEBUG
 bool passDebugFlag = false;
 static llvm::cl::opt<bool, true>
-    Debug("sle-debug", llvm::cl::desc("enable debug for simplify loop exits"),
+    Debug("sle-debug", llvm::cl::desc("debug simplify loop exits pass"),
           llvm::cl::location(passDebugFlag));
 #endif // SIMPLIFYLOOPEXITS_DEBUG
 
