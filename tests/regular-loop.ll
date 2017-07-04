@@ -4,8 +4,13 @@
 
 define void @test() {
 entry:
-; CHECK: {{sle_flag*}}
-; CHECK: {{sle_switch*}}
+; CHECK-NOT: {{sle_flag*}}
+; CHECK-NOT: {{sle_switch*}}
+; CHECK-NOT: {{sle_header*}}
+; CHECK-NOT: {{sle_exit*}}
+; CHECK-NOT: {{sle_latch*}}
+; CHECK-NOT: {{sle_oldlatch*}}
+; CHECK-NOT: {{sle_oldheader*}}
   br label %while.cond
 
 while.cond:                                       ; preds = %while.body, %entry
@@ -13,8 +18,6 @@ while.cond:                                       ; preds = %while.body, %entry
   %i.0 = phi i32 [ 10, %entry ], [ %dec, %while.body ]
   %dec = add nsw i32 %i.0, -1
   %tobool = icmp ne i32 %dec, 0
-; CHECK: {{sle_cond*}}
-; CHECK-SAME: and
   br i1 %tobool, label %while.body, label %loop_exit_original
 
 while.body:                                       ; preds = %while.cond
