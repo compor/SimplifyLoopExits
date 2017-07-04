@@ -60,6 +60,7 @@
 
 #include <algorithm>
 // using std::any_of
+// using std::for_each
 
 #include <limits>
 // using std::numeric_limits
@@ -170,6 +171,8 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
   llvm::SmallVector<llvm::Loop *, 32> workList;
   SimplifyLoopExits sle;
 
+  auto loopPrintFunc = [](const auto &e) { llvm::errs() << *e << "\n"; };
+
   for (auto &CurFunc : M) {
     if (CurFunc.isDeclaration())
       continue;
@@ -178,6 +181,15 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
     auto &DT =
         getAnalysis<llvm::DominatorTreeWrapperPass>(CurFunc).getDomTree();
 
+    auto loopDepthPrintFunc = [&LI](const auto &e) {
+      llvm::SmallVector<llvm::BasicBlock *, 5> exiting;
+      e->getExitingBlocks(exiting);
+
+      llvm::outs() << e->getLoopDepth() << "\n";
+      for (auto &x : exiting)
+        llvm::errs() << x->getName() << " -> " << LI[x]->getLoopDepth() << "\n";
+    };
+
     workList.clear();
     workList.append(&*(LI.begin()), &*(LI.end()));
 
@@ -185,14 +197,22 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
       for (auto &e : workList[i]->getSubLoops())
         workList.push_back(e);
 
+    DEBUG_MSG("\nloop depths for subloops and exiting blocks\n");
+    DEBUG_CMD(
+        std::for_each(workList.begin(), workList.end(), loopDepthPrintFunc));
+
     workList.erase(
         std::remove_if(workList.begin(), workList.end(), [](const auto *e) {
           auto d = e->getLoopDepth();
           return d < LoopDepthLB || d > LoopDepthUB;
         }), workList.end());
 
+    DEBUG_MSG("\nafter applying loop depth constraints\n");
+    DEBUG_CMD(std::for_each(workList.begin(), workList.end(), loopPrintFunc));
+    DEBUG_MSG("---\n");
+
     // remove any loops that their exiting blocks are outside of the
-    // specified loop next levels
+    // specified loop nest levels
     workList.erase(
         std::remove_if(workList.begin(), workList.end(), [&LI](const auto *e) {
           llvm::SmallVector<llvm::BasicBlock *, 5> exiting;
@@ -206,10 +226,18 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
                              });
         }), workList.end());
 
+    DEBUG_MSG("\nafter applying exiting block depth constraints\n");
+    DEBUG_CMD(std::for_each(workList.begin(), workList.end(), loopPrintFunc));
+    DEBUG_MSG("---\n");
+
     workList.erase(
         std::remove_if(workList.begin(), workList.end(), [](const auto *e) {
           return isLoopExitSimplifyForm(*e);
         }), workList.end());
+
+    DEBUG_MSG("\nafter testing for loop exit simplify form\n");
+    DEBUG_CMD(std::for_each(workList.begin(), workList.end(), loopPrintFunc));
+    DEBUG_MSG("---\n");
 
     std::reverse(workList.begin(), workList.end());
 
@@ -221,6 +249,8 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
       continue;
 
     for (auto *e : workList) {
+      DEBUG_CMD(llvm::dbgs() << "processing: " << *e << "\n");
+
       bool changed = sle.transform(*e, LI, &DT);
 
       hasModuleChanged |= changed;
