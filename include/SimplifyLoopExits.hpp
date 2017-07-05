@@ -87,7 +87,6 @@ private:
   inline void init(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
                    llvm::DominatorTree *DT = nullptr);
   void updateExitEdges();
-  void demoteGeneratedValues();
   void redirectExitingBlocksToLatch();
 };
 

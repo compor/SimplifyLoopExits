@@ -49,6 +49,7 @@
 
 #include <algorithm>
 // using std::any_of
+// using std::for_each
 
 #include <limits>
 // using std::numeric_limits
@@ -92,15 +93,36 @@ getExitCondition(const llvm::Loop &CurLoop, const llvm::BasicBlock *BB) {
 
 //
 
-void DetectGeneratedValuesVisitor(const std::set<llvm::BasicBlock *> &Blocks,
-                                  std::set<llvm::Instruction *> &Generated) {
+void FindDefsInBlocksNotUsedIn(const std::set<llvm::BasicBlock *> &Blocks,
+                               const std::set<llvm::BasicBlock *> &Exclude,
+                               std::set<llvm::Instruction *> &Defs) {
   for (auto &bb : Blocks)
     for (auto &inst : *bb)
       if (std::any_of(inst.user_begin(), inst.user_end(), [&](const auto &u) {
             auto *inst = llvm::dyn_cast<llvm::Instruction>(u);
-            return inst && Blocks.end() == Blocks.find(inst->getParent());
+            return inst && Exclude.end() == Exclude.find(inst->getParent());
           }))
-        Generated.insert(&inst);
+        Defs.insert(&inst);
+
+  return;
+}
+
+void FindDefsUsedInPHIsOfBlockWithIncoming(
+    const llvm::BasicBlock &Block, const llvm::BasicBlock &Incoming,
+    std::set<llvm::Instruction *> &Defs) {
+  for (auto bi = Block.begin(); llvm::isa<llvm::PHINode>(bi);) {
+    auto *phi = llvm::cast<llvm::PHINode>(bi++);
+    auto found =
+        std::find_if(phi->block_begin(), phi->block_end(),
+                     [&Incoming](const auto &e) { return e == &Incoming; });
+
+    if (phi->block_end() != found) {
+      auto *incomingValue = phi->getIncomingValueForBlock(&Incoming);
+      Defs.insert(llvm::dyn_cast<llvm::Instruction>(incomingValue));
+    }
+  }
+
+  Defs.erase(nullptr); // erase null from dynamic cast
 
   return;
 }
@@ -117,6 +139,21 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
 
   init(CurLoop, LI, DT);
 
+  std::set<llvm::Instruction *> toDemote;
+
+  // the old latch should only affect phi nodes in the old header
+  // the incoming value of that phi operand could potentially have been defined
+  // anywhere in the loop (include the latch itself)
+  // these definitions may be skipped since we are going to redirect exiting
+  // branches to the new latch
+  // make sure to demote them after the CFG has been changed
+  FindDefsUsedInPHIsOfBlockWithIncoming(*m_Header, *m_Latch, toDemote);
+
+  // find all defs defined in the loop and used outside of it
+  std::set<llvm::BasicBlock *> blocks(m_CurLoop->getBlocks().begin(),
+                                      m_CurLoop->getBlocks().end());
+  FindDefsInBlocksNotUsedIn(blocks, blocks, toDemote);
+
   auto *exitFlag = createExitFlag();
   auto *exitFlagVal = setExitFlag(!getExitCondition(*m_CurLoop).first, exitFlag,
                                   m_Preheader->getTerminator());
@@ -131,10 +168,11 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
 
   auto oldHeader = createHeader(exitFlag, m_UnifiedExit);
 
-  demoteGeneratedValues();
-
   attachExitValues(exitFlag, exitSwitch);
   redirectExitingBlocksToLatch();
+
+  for (auto &e : toDemote)
+    llvm::DemoteRegToStack(*e, false, m_Preheader->getTerminator());
 
   if (m_DT)
     m_DT->recalculate(*(m_Header->getParent()));
@@ -144,8 +182,8 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
          "Pass did not preserve loop canonical for as expected!");
 
   assert((isLoopExitSimplifyForm(*m_CurLoop) ||
-         dumpFunction(m_Header->getParent())) &&
-             "Pass did not transform loop as expected!");
+          dumpFunction(m_Header->getParent())) &&
+         "Pass did not transform loop as expected!");
 
   return true;
 }
@@ -357,35 +395,6 @@ void SimplifyLoopExits::init(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
 void SimplifyLoopExits::updateExitEdges() {
   m_Edges.clear();
   m_CurLoop->getExitEdges(m_Edges);
-
-  return;
-}
-
-void SimplifyLoopExits::demoteGeneratedValues() {
-  std::set<llvm::Instruction *> generated;
-  std::set<llvm::BasicBlock *> blocks(m_CurLoop->getBlocks().begin(),
-                                      m_CurLoop->getBlocks().end());
-  DetectGeneratedValuesVisitor(blocks, generated);
-
-  // remove header phis because they are preserved
-  for (auto bi = m_Header->begin(), be = m_Header->end();
-       bi != be && llvm::dyn_cast<llvm::PHINode>(&*bi); ++bi)
-    generated.erase(&*bi);
-
-  assert(m_OldLatch && "new latch node has not been created yet!");
-
-  // old latch block has its postdominance changed due to the new latch,
-  // so any generated values used elsewhere inside the loop need to be updated
-  for (auto &e : *m_OldLatch)
-    if (std::any_of(e.user_begin(), e.user_end(), [this](const auto &u) {
-          auto *inst = llvm::dyn_cast<llvm::Instruction>(u);
-          return inst && inst->getParent() != m_OldLatch &&
-                 m_CurLoop->contains(inst->getParent());
-        }))
-      generated.insert(&e);
-
-  for (auto &e : generated)
-    llvm::DemoteRegToStack(*e, false, m_Preheader->getTerminator());
 
   return;
 }
