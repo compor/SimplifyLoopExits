@@ -14,6 +14,27 @@
 #include <cstdlib>
 // using std::abort
 
+#include <string>
+// using std::string
+
+#include <algorithm>
+// using std::for_each
+
+#include <exception>
+// using std::exception
+
+#include <cassert>
+// using assert
+
+#include "gtest/gtest.h"
+// using testing::Test
+
+#include "boost/variant.hpp"
+// using boost::variant
+
+#include "boost/variant/get.hpp"
+// using boost::get
+
 #include "llvm/IR/LLVMContext.h"
 // using llvm::LLVMContext
 
@@ -46,27 +67,6 @@
 #include "llvm/Support/raw_ostream.h"
 // using llvm::raw_string_ostream
 
-#include "gtest/gtest.h"
-// using testing::Test
-
-#include "boost/variant.hpp"
-// using boost::variant
-
-#include "boost/variant/get.hpp"
-// using boost::get
-
-#include <string>
-// using std::string
-
-#include <algorithm>
-// using std::for_each
-
-#include <exception>
-// using std::exception
-
-#include <cassert>
-// using assert
-
 #include "SimplifyLoopExits.hpp"
 
 #ifdef BOOST_NO_EXCEPTIONS
@@ -78,8 +78,7 @@ void throw_exception(std::exception const &e) { assert(true); }
 namespace icsa {
 namespace {
 
-using test_result_t =
-    boost::variant<bool, int, const char *, std::string>;
+using test_result_t = boost::variant<bool, int, const char *, std::string>;
 using test_result_map = std::map<std::string, test_result_t>;
 
 class TestSimplifyLoopExits : public testing::Test {
