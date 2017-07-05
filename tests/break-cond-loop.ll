@@ -18,10 +18,10 @@ entry:
 
 while.cond:                                       ; preds = %if.end, %entry
 ; CHECK-LABEL: old_header:
-; CHECK: [[SLE_EXIT_COND:%sle_exit_cond.*]] = select {{.*}}
-; CHECK: store i1 [[SLE_EXIT_COND]], i1* [[SLE_FLAG]]
-; CHECK: [[SLE_SWITCH_COND:%sle_switch_cond.*]] = select {{.*}} {{.*}}, i32 0, {{.*}}
-; CHECK: store i32 [[SLE_SWITCH_COND]], i32* [[SLE_SWITCH]]
+; CHECK: [[SLE_EXIT_COND1:%sle_exit_cond.*]] = select {{.*}}
+; CHECK: store i1 [[SLE_EXIT_COND1]], i1* [[SLE_FLAG]]
+; CHECK: [[SLE_SWITCH_COND1:%sle_switch_cond.*]] = select {{.*}} {{.*}}, i32 0, {{.*}}
+; CHECK: store i32 [[SLE_SWITCH_COND1]], i32* [[SLE_SWITCH]]
   %a.0 = phi i32 [ 0, %entry ], [ %inc1, %if.end ]
   %i.0 = phi i32 [ 10, %entry ], [ %dec, %if.end ]
   %dec = add nsw i32 %i.0, -1
@@ -31,10 +31,10 @@ while.cond:                                       ; preds = %if.end, %entry
 
 while.body:                                       ; preds = %while.cond
 ; CHECK-LABEL: while.body:
-; CHECK: [[SLE_EXIT_COND:%sle_exit_cond.*]] = select {{.*}}
-; CHECK: store i1 [[SLE_EXIT_COND]], i1* [[SLE_FLAG]]
-; CHECK: [[SLE_SWITCH_COND:%sle_switch_cond.*]] = select {{.*}} {{.*}}, i32 1, {{.*}}
-; CHECK: store i32 [[SLE_SWITCH_COND]], i32* [[SLE_SWITCH]]
+; CHECK: [[SLE_EXIT_COND2:%sle_exit_cond.*]] = select {{.*}}
+; CHECK: store i1 [[SLE_EXIT_COND2]], i1* [[SLE_FLAG]]
+; CHECK: [[SLE_SWITCH_COND2:%sle_switch_cond.*]] = select {{.*}} {{.*}}, i32 1, {{.*}}
+; CHECK: store i32 [[SLE_SWITCH_COND2]], i32* [[SLE_SWITCH]]
   %inc = add nsw i32 %a.0, 1
   %cmp = icmp eq i32 %inc, 5
   br i1 %cmp, label %if.then, label %if.end
