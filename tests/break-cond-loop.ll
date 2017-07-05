@@ -37,6 +37,7 @@ while.body:                                       ; preds = %while.cond
 ; CHECK: store i32 [[SLE_SWITCH_COND2]], i32* [[SLE_SWITCH]]
   %inc = add nsw i32 %a.0, 1
   %cmp = icmp eq i32 %inc, 5
+; CHECK: br i1 %cmp, label %sle_latch, label %old_latch
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %while.body

@@ -37,6 +37,7 @@ while.body:                                       ; preds = %while.cond
 ; CHECK: store i32 [[SLE_SWITCH_COND2]], i32* [[SLE_SWITCH]]
   %inc = add nsw i32 %a.0, 1
   %cmp = icmp eq i32 %inc, 3
+; CHECK: br i1 %cmp, label %sle_latch, label %if.end
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %while.body
@@ -49,6 +50,7 @@ if.end:                                           ; preds = %while.body
 ; CHECK: [[SLE_SWITCH_COND3:%sle_switch_cond.*]] = select {{.*}} {{.*}}, i32 2, {{.*}}
 ; CHECK: store i32 [[SLE_SWITCH_COND3]], i32* [[SLE_SWITCH]]
   %cmp1 = icmp eq i32 %inc, 5
+; CHECK: br i1 %cmp1, label %sle_latch, label %if.end.3
   br i1 %cmp1, label %if.then.2, label %if.end.3
 
 if.then.2:                                        ; preds = %if.end
@@ -61,6 +63,7 @@ if.end.3:                                         ; preds = %if.end
 ; CHECK: [[SLE_SWITCH_COND4:%sle_switch_cond.*]] = select {{.*}} {{.*}}, i32 3, {{.*}}
 ; CHECK: store i32 [[SLE_SWITCH_COND4]], i32* [[SLE_SWITCH]]
   %cmp4 = icmp eq i32 %inc, 7
+; CHECK: br i1 %cmp4, label %sle_latch, label %old_latch
   br i1 %cmp4, label %if.then.5, label %if.end.6
 
 if.then.5:                                        ; preds = %if.end.3
