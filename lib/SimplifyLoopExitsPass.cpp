@@ -35,7 +35,7 @@
 // using llvm::RegisterStandardPasses
 
 #include "llvm/Transforms/Scalar.h"
-// using char llvm::LoopInfoSimplifyID
+// using char llvm::LoopSimplifyID
 
 #include "llvm/ADT/SmallVector.h"
 // using llvm::SmallVector
