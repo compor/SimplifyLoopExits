@@ -209,7 +209,6 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
 
     DEBUG_MSG("\nafter applying loop depth constraints\n");
     DEBUG_CMD(std::for_each(workList.begin(), workList.end(), loopPrintFunc));
-    DEBUG_MSG("---\n");
 
     // remove any loops that their exiting blocks are outside of the
     // specified loop nest levels
@@ -228,7 +227,6 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
 
     DEBUG_MSG("\nafter applying exiting block depth constraints\n");
     DEBUG_CMD(std::for_each(workList.begin(), workList.end(), loopPrintFunc));
-    DEBUG_MSG("---\n");
 
     workList.erase(
         std::remove_if(workList.begin(), workList.end(), [](const auto *e) {
@@ -237,7 +235,6 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
 
     DEBUG_MSG("\nafter testing for loop exit simplify form\n");
     DEBUG_CMD(std::for_each(workList.begin(), workList.end(), loopPrintFunc));
-    DEBUG_MSG("---\n");
 
     std::reverse(workList.begin(), workList.end());
 

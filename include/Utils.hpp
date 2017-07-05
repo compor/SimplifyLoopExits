@@ -5,6 +5,8 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
+#include "Config.hpp"
+
 #if SIMPLIFYLOOPEXITS_DEBUG
 
 #include "llvm/IR/Function.h"
@@ -41,7 +43,7 @@ extern bool passDebugFlag;
 
 namespace icsa {
 
-bool dumpFunction(const llvm::Function *CurFunc = nullptr) {
+static bool dumpFunction(const llvm::Function *CurFunc = nullptr) {
   if (!CurFunc)
     return false;
 
@@ -75,7 +77,7 @@ class Function;
 
 namespace icsa {
 
-constexpr bool dumpFunction(const llvm::Function *CurFunc = nullptr) {
+static constexpr bool dumpFunction(const llvm::Function *CurFunc = nullptr) {
   return true;
 }
 
