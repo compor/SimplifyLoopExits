@@ -134,12 +134,15 @@ bool UniquifyLoopExits(llvm::Loop &CurLoop) {
 
   reverse_edge_t redges;
 
+  // setup exits as keys
   for (auto &e : edges)
     redges.emplace(std::make_pair(e.second, exits_t{}));
 
+  // associate exits to exiting blocks
   for (auto &e : edges)
     auto found = redges[e.second].insert(e.first);
 
+  // remove exits that have only one exiting predecessor
   auto rit = redges.begin();
   while (rit != redges.end())
     if (rit->second.size() == 1)
@@ -161,12 +164,16 @@ bool UniquifyLoopExits(llvm::Loop &CurLoop) {
     for (auto &k : e.second) {
       auto *exiting = const_cast<llvm::BasicBlock *>(k);
 
+      // create a new exit block that branches unconditionally to the exit
+      // this way each exiting block will get its own unique exit
       auto *uniqueExit = llvm::BasicBlock::Create(
           exit->getContext(), "sle_unique_exit", exit->getParent(), exit);
       auto *br = llvm::BranchInst::Create(exit, uniqueExit);
 
+      // change the terminator of exiting block to use the new exit
       exiting->getTerminator()->replaceUsesOfWith(exit, uniqueExit);
 
+      // change the phis that use old exit to new one
       for (auto bi = exit->begin(); llvm::isa<llvm::PHINode>(bi);) {
         auto *phi = llvm::cast<llvm::PHINode>(bi++);
 
