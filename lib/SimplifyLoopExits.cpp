@@ -126,6 +126,7 @@ void FindDefsUsedInPHIsOfBlockWithIncoming(
 }
 
 bool UniquifyLoopExits(llvm::Loop &CurLoop) {
+  bool hasChanged = false;
   llvm::SmallVector<llvm::Loop::Edge, 4> edges;
   CurLoop.getExitEdges(edges);
 
@@ -159,6 +160,7 @@ bool UniquifyLoopExits(llvm::Loop &CurLoop) {
   }));
 
   for (auto &e : redges) {
+    hasChanged = true;
     auto *exit = const_cast<llvm::BasicBlock *>(e.first);
 
     for (auto &k : e.second) {
@@ -184,7 +186,7 @@ bool UniquifyLoopExits(llvm::Loop &CurLoop) {
     }
   }
 
-  return false;
+  return hasChanged;
 }
 
 //
