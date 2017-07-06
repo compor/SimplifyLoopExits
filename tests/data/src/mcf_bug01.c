@@ -1,5 +1,5 @@
 
-/* taken from global_opt() in 429.mcf */
+/* based on global_opt() in 429.mcf */
 
 int net;
 

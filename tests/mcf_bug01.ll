@@ -1,4 +1,5 @@
 ; test bug taken from 429.mcf global_opt()
+
 ; def value in loop should be demoted to memory
 
 ; RUN: opt -load %bindir/%testeelib -simplify-loop-exits -S < %s | FileCheck  %s
