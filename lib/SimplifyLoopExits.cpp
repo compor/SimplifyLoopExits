@@ -91,8 +91,6 @@ getExitCondition(const llvm::Loop &CurLoop, const llvm::BasicBlock *BB) {
   return ec;
 }
 
-//
-
 void FindDefsInBlocksNotUsedIn(const std::set<llvm::BasicBlock *> &Blocks,
                                const std::set<llvm::BasicBlock *> &Exclude,
                                std::set<llvm::Instruction *> &Defs) {
@@ -127,6 +125,63 @@ void FindDefsUsedInPHIsOfBlockWithIncoming(
   return;
 }
 
+bool UniquifyLoopExits(llvm::Loop &CurLoop) {
+  llvm::SmallVector<llvm::Loop::Edge, 4> edges;
+  CurLoop.getExitEdges(edges);
+
+  using exits_t = std::set<const llvm::BasicBlock *>;
+  using reverse_edge_t = std::map<const llvm::BasicBlock *, exits_t>;
+
+  reverse_edge_t redges;
+
+  for (auto &e : edges)
+    redges.emplace(std::make_pair(e.second, exits_t{}));
+
+  for (auto &e : edges)
+    auto found = redges[e.second].insert(e.first);
+
+  auto rit = redges.begin();
+  while (rit != redges.end())
+    if (rit->second.size() == 1)
+      rit = redges.erase(rit);
+    else
+      ++rit;
+
+  DEBUG_MSG("shared loop exits\n");
+  DEBUG_CMD(std::for_each(redges.begin(), redges.end(), [](const auto &e) {
+    llvm::errs() << e.first->getName() << " -> ";
+    for (const auto &k : e.second)
+      llvm::errs() << k->getName() << " ";
+    llvm::errs() << "\n";
+  }));
+
+  for (auto &e : redges) {
+    auto *exit = const_cast<llvm::BasicBlock *>(e.first);
+
+    for (auto &k : e.second) {
+      auto *exiting = const_cast<llvm::BasicBlock *>(k);
+
+      auto *uniqueExit = llvm::BasicBlock::Create(
+          exit->getContext(), "sle_unique_exit", exit->getParent(), exit);
+      auto *br = llvm::BranchInst::Create(exit, uniqueExit);
+
+      exiting->getTerminator()->replaceUsesOfWith(exit, uniqueExit);
+
+      for (auto bi = exit->begin(); llvm::isa<llvm::PHINode>(bi);) {
+        auto *phi = llvm::cast<llvm::PHINode>(bi++);
+
+        auto i = 0;
+        while ((i = phi->getBasicBlockIndex(exiting)) >= 0)
+          phi->setIncomingBlock(i, uniqueExit);
+      }
+    }
+  }
+
+  return false;
+}
+
+//
+
 SimplifyLoopExits::SimplifyLoopExits()
     : m_LI(nullptr), m_DT(nullptr), m_CurLoop(nullptr), m_Preheader(nullptr),
       m_Header(nullptr), m_OldHeader(nullptr), m_Latch(nullptr),
@@ -139,10 +194,14 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
 
   init(CurLoop, LI, DT);
 
+  UniquifyLoopExits(CurLoop);
+  updateExitEdges();
+
   std::set<llvm::Instruction *> toDemote;
 
   // the old latch should only affect phi nodes in the old header
-  // the incoming value of that phi operand could potentially have been defined
+  // the incoming value of that phi operand could potentially have been
+  // defined
   // anywhere in the loop (include the latch itself)
   // these definitions may be skipped since we are going to redirect exiting
   // branches to the new latch
