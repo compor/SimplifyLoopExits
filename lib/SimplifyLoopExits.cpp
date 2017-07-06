@@ -203,8 +203,15 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
 
   init(CurLoop, LI, DT);
 
-  UniquifyLoopExits(CurLoop);
-  updateExitEdges();
+  if (UniquifyLoopExits(CurLoop)) {
+    // TODO update dom tree manually
+    // TODO new exit blocks need to belong to the closest outer loop in the case
+    // of nested loops
+    if (m_DT)
+      m_DT->recalculate(*(m_Header->getParent()));
+
+    updateExitEdges();
+  }
 
   std::set<llvm::Instruction *> toDemote;
 
