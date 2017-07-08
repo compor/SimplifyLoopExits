@@ -70,15 +70,15 @@ bool isLoopExitSimplifyForm(const llvm::Loop &CurLoop) {
 
 std::pair<bool, llvm::BasicBlock *>
 getExitCondition(const llvm::Loop &CurLoop, const llvm::BasicBlock *BB) {
-  auto term = BB ? BB->getTerminator() : CurLoop.getHeader()->getTerminator();
+  auto term = BB->getTerminator();
 
   assert(CurLoop.contains(term->getParent()) &&
          "Basic block must belong to loop!");
 
   auto ec = std::make_pair(false, static_cast<llvm::BasicBlock *>(nullptr));
 
-  assert(term->getNumSuccessors() <= 2 &&
-         "Loop exiting block with more than 2 successors is not supported!");
+  assert(term->getNumSuccessors() == 2 &&
+         "Loop exiting block with != 2 successors is not supported!");
 
   if (!CurLoop.contains(term->getSuccessor(0))) {
     ec.first = true;
@@ -230,8 +230,7 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
   FindDefsInBlocksNotUsedIn(blocks, blocks, toDemote);
 
   auto *exitFlag = createExitFlag();
-  auto *exitFlagVal = setExitFlag(!getExitCondition(*m_CurLoop).first, exitFlag,
-                                  m_Preheader->getTerminator());
+  auto *exitFlagVal = setExitFlag(true, exitFlag, m_Preheader->getTerminator());
 
   createLatch();
 
@@ -254,7 +253,7 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
 
   assert((m_CurLoop->isLoopSimplifyForm() ||
           dumpFunction(m_Header->getParent())) &&
-         "Pass did not preserve loop canonical for as expected!");
+         "Pass did not preserve loop canonical form as expected!");
 
   assert((isLoopExitSimplifyForm(*m_CurLoop) ||
           dumpFunction(m_Header->getParent())) &&
@@ -264,13 +263,7 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
 }
 
 llvm::Value *SimplifyLoopExits::createExitFlag() {
-  auto *hdrBranch = llvm::dyn_cast<llvm::BranchInst>(m_Header->getTerminator());
-  assert(hdrBranch && "Loop header terminator must be a branch instruction!");
-
-  auto *flagType = hdrBranch->isConditional()
-                       ? hdrBranch->getCondition()->getType()
-                       : llvm::IntegerType::get(hdrBranch->getContext(),
-                                                unified_exit_case_type_bits);
+  auto *flagType = llvm::IntegerType::get(m_Header->getContext(), 1);
   auto *flagAlloca = new llvm::AllocaInst(flagType, nullptr, "sle_flag",
                                           m_Preheader->getTerminator());
 
@@ -296,7 +289,7 @@ llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *On,
 llvm::BasicBlock *
 SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   auto &curCtx = m_Header->getContext();
-  auto *hdrExit = getExitCondition(*m_CurLoop, m_Header).second;
+  auto *defaultExit = getExitCondition(*m_CurLoop, m_Edges[0].first).second;
 
   auto *unifiedExit =
       llvm::BasicBlock::Create(curCtx, "sle_exit", m_Preheader->getParent());
@@ -304,13 +297,13 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   auto *exitSwitchVal =
       new llvm::LoadInst(ExitSwitch, "sle_switch", unifiedExit);
 
-  auto *sleBr = llvm::SwitchInst::Create(exitSwitchVal, hdrExit, m_Edges.size(),
-                                         unifiedExit);
+  auto *sleBr = llvm::SwitchInst::Create(exitSwitchVal, defaultExit,
+                                         m_Edges.size(), unifiedExit);
 
   unified_exit_case_type caseIdx = DefaultCase + 1;
 
   for (auto eit = m_Edges.begin(), ee = m_Edges.end(); eit != ee; ++eit) {
-    if (eit->second == hdrExit)
+    if (eit->second == defaultExit)
       continue;
 
     auto *caseVal = llvm::ConstantInt::get(
@@ -356,6 +349,8 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
 
   m_Latch->setName("sle_latch");
   m_OldLatch->setName("old_latch");
+
+  updateExitEdges();
 
   return m_Latch;
 }
@@ -417,7 +412,7 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
 
     auto *flagStore = setExitFlag(selExitCond, ExitFlag, term);
 
-    auto curCaseVal = e.first == m_OldHeader ? DefaultCase : ++caseVal;
+    auto curCaseVal = ++caseVal;
 
     auto cond1CaseVal = exitCond ? curCaseVal : DefaultCase;
     auto cond2CaseVal = !exitCond ? curCaseVal : DefaultCase;
@@ -485,8 +480,13 @@ void SimplifyLoopExits::redirectExitingBlocksToLatch() {
     auto *exiting = const_cast<llvm::BasicBlock *>(e.first);
     auto ec = getExitCondition(*m_CurLoop, exiting);
 
-    auto *br = llvm::dyn_cast<llvm::BranchInst>(exiting->getTerminator());
-    br->setSuccessor(!ec.first, m_Latch);
+    if (e.first == m_Latch) {
+      auto *br = llvm::dyn_cast<llvm::BranchInst>(exiting->getTerminator());
+      br->setSuccessor(!ec.first, m_Header);
+    } else {
+      auto *br = llvm::dyn_cast<llvm::BranchInst>(exiting->getTerminator());
+      br->setSuccessor(!ec.first, m_Latch);
+    }
   }
 
   updateExitEdges();

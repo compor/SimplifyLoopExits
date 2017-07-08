@@ -37,8 +37,7 @@ namespace icsa {
 bool isLoopExitSimplifyForm(const llvm::Loop &CurLoop);
 
 std::pair<bool, llvm::BasicBlock *>
-getExitCondition(const llvm::Loop &CurLoop,
-                 const llvm::BasicBlock *BB = nullptr);
+getExitCondition(const llvm::Loop &CurLoop, const llvm::BasicBlock *BB);
 
 class SimplifyLoopExits {
 public:
