@@ -36,6 +36,7 @@
 
 #include "llvm/Transforms/Scalar.h"
 // using char llvm::LoopSimplifyID
+// using char llvm::LowerSwitchID
 
 #include "llvm/ADT/SmallVector.h"
 // using llvm::SmallVector
@@ -260,12 +261,13 @@ bool SimplifyLoopExitsPass::runOnModule(llvm::Module &M) {
 }
 
 void SimplifyLoopExitsPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
+  AU.addRequiredTransitiveID(llvm::LowerSwitchID);
+  AU.addRequiredTransitiveID(llvm::LoopSimplifyID);
+  AU.addPreservedID(llvm::LoopSimplifyID);
   AU.addRequiredTransitive<llvm::DominatorTreeWrapperPass>();
   AU.addPreserved<llvm::DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<llvm::LoopInfoWrapperPass>();
   AU.addPreserved<llvm::LoopInfoWrapperPass>();
-  AU.addRequiredTransitiveID(llvm::LoopSimplifyID);
-  AU.addPreservedID(llvm::LoopSimplifyID);
 
   return;
 }

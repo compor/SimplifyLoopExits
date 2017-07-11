@@ -483,6 +483,8 @@ void SimplifyLoopExits::redirectExitingBlocksToLatch() {
     if (e.first == m_Latch) {
       auto *br = llvm::dyn_cast<llvm::BranchInst>(exiting->getTerminator());
       br->setSuccessor(!ec.first, m_Header);
+      br->eraseFromParent();
+      llvm::BranchInst::Create(m_Header, m_Latch);
     } else {
       auto *br = llvm::dyn_cast<llvm::BranchInst>(exiting->getTerminator());
       br->setSuccessor(!ec.first, m_Latch);
