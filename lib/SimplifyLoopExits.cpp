@@ -350,6 +350,21 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
   m_Latch->setName("sle_latch");
   m_OldLatch->setName("old_latch");
 
+  auto *term = m_Latch->getTerminator();
+
+  if (term->getNumSuccessors() > 1) {
+    auto *clonedTerm = llvm::cast<llvm::TerminatorInst>(term->clone());
+    auto *succ0 = clonedTerm->getSuccessor(0);
+    auto *succ1 = clonedTerm->getSuccessor(1);
+
+    clonedTerm->setSuccessor(m_Header == succ0 ? 0 : 1, m_Latch);
+    m_OldLatch->getTerminator()->eraseFromParent();
+    m_OldLatch->getInstList().push_back(clonedTerm);
+
+    m_Latch->getTerminator()->eraseFromParent();
+    llvm::BranchInst::Create(m_Header, m_Latch);
+  }
+
   updateExitEdges();
 
   return m_Latch;
