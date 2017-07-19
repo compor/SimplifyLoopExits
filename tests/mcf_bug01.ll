@@ -1,4 +1,4 @@
-; test bug taken from 429.mcf global_opt()
+; test bug taken from 429.mcf global_opt() of SPEC CPU2006 v1.1
 
 ; def value in loop should be demoted to memory
 
@@ -12,7 +12,7 @@ entry:
 
 while.cond:                                       ; preds = %if.end.3, %entry
 ; CHECK-LABEL: sle_header:
-; CHECK: phi i32 [ {{.*}}, %entry ], [ [[CALL_MEM_LD:%call.*]], %sle_latch ]
+; CHECK-NOT: phi *
   %n.0 = phi i32 [ 5, %entry ], [ %dec, %if.end.3 ]
   %new_arcs.0 = phi i32 [ -1, %entry ], [ %call, %if.end.3 ]
   %tobool = icmp ne i32 %new_arcs.0, 0
@@ -21,16 +21,11 @@ while.cond:                                       ; preds = %if.end.3, %entry
   br i1 %or.cond, label %if.end, label %while.end
 
 if.end:                                           ; preds = %while.cond
-; CHECK-LABEL: if.end:
-; CHECK-DAG: store i32 %call, i32* [[CALL_MEM_LOC:%.*]]
-; CHECK-DAG: load i32, i32* [[CALL_MEM_LOC]]
   %0 = load i32, i32* @net, align 4
   %call = call i32 @price_out_impl(i32 %0)
   %cmp = icmp slt i32 %call, 0
   br i1 %cmp, label %while.end, label %if.end.3
 
-; CHECK-LABEL: sle_latch:
-; CHECK: [[CALL_MEM_LD]] = load i32, i32* [[CALL_MEM_LOC]]
 if.end.3:                                         ; preds = %if.end
   %dec = add nsw i32 %n.0, -1
   br label %while.cond
