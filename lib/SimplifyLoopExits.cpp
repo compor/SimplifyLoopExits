@@ -215,11 +215,13 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
   unified_exit_case_type initCase = 0;
   auto *exitSwitchVal =
       setExitSwitch(initCase, exitSwitch, m_Preheader->getTerminator());
-  m_UnifiedExit = createUnifiedExit(exitSwitch);
+
+  exit_value_map_t exitValueMap;
+  m_UnifiedExit = createUnifiedExit(exitSwitch, exitValueMap);
 
   auto oldHeader = createHeader(exitFlag, m_UnifiedExit);
 
-  attachExitValues(exitFlag, exitSwitch);
+  attachExitValues(exitFlag, exitSwitch, exitValueMap);
   redirectExitingBlocksToLatch();
 
   for (auto &e : toDemote)
@@ -264,9 +266,12 @@ llvm::Value *SimplifyLoopExits::setExitFlag(llvm::Value *On,
 }
 
 llvm::BasicBlock *
-SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
+SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch,
+                                     exit_value_map_t &exitValueMap) {
   auto &curCtx = m_Header->getContext();
   auto *defaultExit = getExitCondition(*m_CurLoop, m_Edges[0].first).second;
+
+  exitValueMap.emplace(defaultExit, DefaultCase);
 
   auto *unifiedExit =
       llvm::BasicBlock::Create(curCtx, "sle_exit", m_Preheader->getParent());
@@ -282,6 +287,8 @@ SimplifyLoopExits::createUnifiedExit(llvm::Value *ExitSwitch) {
   for (auto eit = m_Edges.begin(), ee = m_Edges.end(); eit != ee; ++eit) {
     if (eit->second == defaultExit)
       continue;
+
+    exitValueMap.emplace(eit->second, caseIdx);
 
     auto *caseVal = llvm::ConstantInt::get(
         llvm::IntegerType::get(curCtx, unified_exit_case_type_bits), caseIdx++);
@@ -374,7 +381,8 @@ llvm::Value *SimplifyLoopExits::setExitSwitch(llvm::Value *Case,
 }
 
 void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
-                                         llvm::Value *ExitSwitch) {
+                                         llvm::Value *ExitSwitch,
+                                         const exit_value_map_t &exitValueMap) {
   unified_exit_case_type caseVal = DefaultCase;
 
   for (auto &e : m_Edges) {
@@ -404,7 +412,7 @@ void SimplifyLoopExits::attachExitValues(llvm::Value *ExitFlag,
 
     auto *flagStore = setExitFlag(selExitCond, ExitFlag, term);
 
-    auto curCaseVal = ++caseVal;
+    auto curCaseVal = exitValueMap.at(e.second);
 
     auto cond1CaseVal = exitCond ? curCaseVal : DefaultCase;
     auto cond2CaseVal = !exitCond ? curCaseVal : DefaultCase;

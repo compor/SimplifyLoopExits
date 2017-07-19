@@ -16,6 +16,9 @@
 #include <cstdint>
 // using std::int32_t
 
+#include <map>
+// using std::map
+
 #include <set>
 // using std::set
 
@@ -43,6 +46,8 @@ class SimplifyLoopExits {
 public:
   using unified_exit_case_type = std::uint32_t;
   unified_exit_case_type DefaultCase = 0;
+  using exit_value_map_t =
+      std::map<const llvm::BasicBlock *, unified_exit_case_type>;
 
 public:
   SimplifyLoopExits();
@@ -63,12 +68,14 @@ public:
   llvm::Value *setExitSwitch(llvm::Value *Case, llvm::Value *ExitSwitch,
                              llvm::Instruction *InsertBefore = nullptr);
 
-  llvm::BasicBlock *createUnifiedExit(llvm::Value *ExitSwitch);
+  llvm::BasicBlock *createUnifiedExit(llvm::Value *ExitSwitch,
+                                      exit_value_map_t &exitValueMap);
   llvm::BasicBlock *createHeader(llvm::Value *ExitFlag,
                                  llvm::BasicBlock *UnifiedExit = nullptr);
   llvm::BasicBlock *createLatch();
 
-  void attachExitValues(llvm::Value *ExitFlag, llvm::Value *ExitSwitch);
+  void attachExitValues(llvm::Value *ExitFlag, llvm::Value *ExitSwitch,
+                        const exit_value_map_t &exitValueMap);
 
 private:
   llvm::LoopInfo *m_LI;
