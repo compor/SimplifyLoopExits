@@ -105,26 +105,6 @@ void FindDefsInBlocksNotUsedIn(const std::set<llvm::BasicBlock *> &Blocks,
   return;
 }
 
-void FindDefsUsedInPHIsOfBlockWithIncoming(
-    const llvm::BasicBlock &Block, const llvm::BasicBlock &Incoming,
-    std::set<llvm::Instruction *> &Defs) {
-  for (auto bi = Block.begin(); llvm::isa<llvm::PHINode>(bi);) {
-    auto *phi = llvm::cast<llvm::PHINode>(bi++);
-    auto found =
-        std::find_if(phi->block_begin(), phi->block_end(),
-                     [&Incoming](const auto &e) { return e == &Incoming; });
-
-    if (phi->block_end() != found) {
-      auto *incomingValue = phi->getIncomingValueForBlock(&Incoming);
-      Defs.insert(llvm::dyn_cast<llvm::Instruction>(incomingValue));
-    }
-  }
-
-  Defs.erase(nullptr); // erase null from dynamic cast
-
-  return;
-}
-
 bool UniquifyLoopExits(llvm::Loop &CurLoop) {
   bool hasChanged = false;
   llvm::SmallVector<llvm::Loop::Edge, 4> edges;
@@ -213,16 +193,13 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
     updateExitEdges();
   }
 
-  std::set<llvm::Instruction *> toDemote;
+  for (auto bi = m_Header->begin(); llvm::isa<llvm::PHINode>(bi);) {
+    auto *phi = llvm::cast<llvm::PHINode>(bi++);
 
-  // the old latch should only affect phi nodes in the old header
-  // the incoming value of that phi operand could potentially have been
-  // defined
-  // anywhere in the loop (include the latch itself)
-  // these definitions may be skipped since we are going to redirect exiting
-  // branches to the new latch
-  // make sure to demote them after the CFG has been changed
-  FindDefsUsedInPHIsOfBlockWithIncoming(*m_Header, *m_Latch, toDemote);
+    llvm::DemotePHIToStack(phi, m_Preheader->getTerminator());
+  }
+
+  std::set<llvm::Instruction *> toDemote;
 
   // find all defs defined in the loop and used outside of it
   std::set<llvm::BasicBlock *> blocks(m_CurLoop->getBlocks().begin(),
