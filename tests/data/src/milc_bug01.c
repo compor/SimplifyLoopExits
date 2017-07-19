@@ -1,5 +1,5 @@
 
-/* based on gaugefix() in 433.milc */
+/* based on gaugefix() in 433.milc from SPEC CPU2006 v1.1 */
 
 void sle_print(int);
 

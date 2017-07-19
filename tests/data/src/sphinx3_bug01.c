@@ -1,4 +1,6 @@
 
+/* test bug taken from 482.sphinx3 noncomment_line() of SPEC CPU2006 v1.1 */
+
 void test() {
   char *line = "#hello";
   int i = 0;

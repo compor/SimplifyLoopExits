@@ -1,5 +1,5 @@
 
-/* based on global_opt() in 429.mcf */
+/* based on global_opt() in 429.mcf from SPEC CPU2006 v1.1 */
 
 int net;
 
