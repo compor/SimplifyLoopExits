@@ -1,4 +1,4 @@
-; test bug taken from 482.sphinx3 noncomment_line()
+; test bug taken from 482.sphinx3 noncomment_line() of SPEC CPU2006 v1.1
 
 ; loop with exiting branch in its latch block
 

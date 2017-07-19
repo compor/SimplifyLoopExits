@@ -1,4 +1,4 @@
-; test bug taken from 433.milc gaugefix()
+; test bug taken from 433.milc gaugefix() of SPEC CPU 2006 v1.1
 
 ; loop exit blocks were not unique for each exiting block 
 ; which caused phi node errors since there were orphaned incoming operands 
