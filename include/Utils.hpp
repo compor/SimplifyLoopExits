@@ -19,8 +19,12 @@
 // using llvm::errs
 // using llvm::raw_fd_ostream
 
-#include <cstdio>
-// using std::tmpnam
+#include <string>
+// using std::to_string
+
+#include <random>
+// std::random_device
+// std::mt19937
 
 #include <system_error>
 // using std::error_code
@@ -47,10 +51,14 @@ static bool dumpFunction(const llvm::Function *CurFunc = nullptr) {
   if (!CurFunc)
     return false;
 
-  std::error_code ec;
-  char filename[L_tmpnam];
-  std::tmpnam(filename);
+  static std::random_device rd;
+  static std::mt19937 gen(rd());
 
+  std::uniform_int_distribution<> dis(1, 1000);
+  auto r = dis(gen);
+
+  llvm::StringRef filename = "function.dump" + std::to_string(r);
+  std::error_code ec;
   llvm::raw_fd_ostream dbgFile(filename, ec, llvm::sys::fs::F_Text);
 
   llvm::errs() << "\nfunction dumped at: " << filename << "\n";
