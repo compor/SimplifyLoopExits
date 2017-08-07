@@ -5,6 +5,8 @@
 #ifndef SIMPLIFYLOOPEXITS_HPP
 #define SIMPLIFYLOOPEXITS_HPP
 
+#include "Config.hpp"
+
 #include "llvm/Analysis/LoopInfo.h"
 // using llvm::LoopBase::Edge
 // using llvm::Loop
@@ -32,7 +34,6 @@ class LoopInfo;
 class DominatorTree;
 class BasicBlock;
 class Instruction;
-class raw_ostream;
 } // namespace llvm end
 
 namespace icsa {
@@ -94,6 +95,7 @@ private:
                    llvm::DominatorTree *DT = nullptr);
   void updateExitEdges();
   void redirectExitingBlocksToLatch();
+  void migrateLoopMetadata(llvm::Instruction &Src, llvm::Instruction &Dst);
 };
 
 } // namespace icsa end

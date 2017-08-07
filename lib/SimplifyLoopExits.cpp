@@ -32,8 +32,9 @@
 // using llvm::SwitchInst
 // using llvm::SelectInst
 
-#include "llvm/IR/InstVisitor.h"
-// using llvm::InstVisitor
+#include "llvm/IR/Metadata.h"
+// using llvm::Metadata
+// using llvm::MDNode
 
 #include "llvm/Transforms/Utils/Local.h"
 // using llvm::DemoteRegToStack
@@ -43,9 +44,6 @@
 
 #include "llvm/Support/Casting.h"
 // using llvm::dyn_cast
-
-// TODO remove this include
-#include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
 // using std::any_of
@@ -338,6 +336,10 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
 
   if (term->getNumSuccessors() > 1) {
     auto *clonedTerm = llvm::cast<llvm::TerminatorInst>(term->clone());
+
+    term->eraseFromParent();
+    llvm::BranchInst::Create(m_Header, m_Latch);
+
     auto *succ0 = clonedTerm->getSuccessor(0);
     auto *succ1 = clonedTerm->getSuccessor(1);
 
@@ -345,8 +347,9 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
     m_OldLatch->getTerminator()->eraseFromParent();
     m_OldLatch->getInstList().push_back(clonedTerm);
 
-    m_Latch->getTerminator()->eraseFromParent();
-    llvm::BranchInst::Create(m_Header, m_Latch);
+    if (m_OldLatch->getTerminator()->hasMetadata())
+      migrateLoopMetadata(*m_OldLatch->getTerminator(),
+                          *m_Latch->getTerminator());
   }
 
   updateExitEdges();
@@ -492,6 +495,27 @@ void SimplifyLoopExits::redirectExitingBlocksToLatch() {
   }
 
   updateExitEdges();
+
+  return;
+}
+
+void SimplifyLoopExits::migrateLoopMetadata(llvm::Instruction &Src,
+                                            llvm::Instruction &Dst) {
+  const char *const loopMDKind = "llvm.loop";
+
+  // copy from source
+  auto *MD = Src.getMetadata(loopMDKind);
+  llvm::SmallVector<llvm::Metadata *, 4> MDs(MD->op_begin(), MD->op_end());
+
+  auto *loopMD = llvm::MDNode::get(Dst.getContext(), MDs);
+  // loop id needs to be unique, so replace old pointer value with self
+  loopMD->replaceOperandWith(0, loopMD);
+
+  // transfer to destination
+  Dst.setMetadata(loopMDKind, loopMD);
+
+  // delete from source
+  Src.setMetadata(loopMDKind, nullptr);
 
   return;
 }
