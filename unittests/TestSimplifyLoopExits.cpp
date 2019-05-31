@@ -56,7 +56,7 @@
 // using llvm::LoopInfoWrapperPass
 // using llvm::LoopInfo
 
-#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
 // using char llvm::LoopSimplifyID
 
 #include "llvm/Support/SourceMgr.h"
@@ -79,7 +79,7 @@
 #ifdef BOOST_NO_EXCEPTIONS
 namespace boost {
 void throw_exception(std::exception const &e) { assert(true); }
-}
+} // namespace boost
 #endif // BOOST_NO_EXCEPTIONS
 
 namespace icsa {
@@ -104,11 +104,9 @@ public:
       std::string fullFilename{m_TestDataDir};
       fullFilename += AssemblyHolder;
 
-      m_Module =
-          llvm::parseAssemblyFile(fullFilename, err, llvm::getGlobalContext());
+      m_Module = llvm::parseAssemblyFile(fullFilename, err, TestContext);
     } else {
-      m_Module = llvm::parseAssemblyString(AssemblyHolder, err,
-                                           llvm::getGlobalContext());
+      m_Module = llvm::parseAssemblyString(AssemblyHolder, err, TestContext);
     }
 
     std::string errMsg;
@@ -224,6 +222,7 @@ public:
   }
 
 protected:
+  llvm::LLVMContext TestContext;
   std::unique_ptr<llvm::Module> m_Module;
   const char *m_TestDataDir;
 };
@@ -372,5 +371,5 @@ TEST_F(TestSimplifyLoopExits, MultipleExitLoop6) {
   ExpectTestPass(trm);
 }
 
-} // namespace anonymous end
-} // namespace icsa end
+} // namespace
+} // namespace icsa
