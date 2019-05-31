@@ -241,8 +241,10 @@ bool SimplifyLoopExits::transform(llvm::Loop &CurLoop, llvm::LoopInfo &LI,
 
 llvm::Value *SimplifyLoopExits::createExitFlag() {
   auto *flagType = llvm::IntegerType::get(m_Header->getContext(), 1);
-  auto *flagAlloca = new llvm::AllocaInst(flagType, nullptr, "sle_flag",
-                                          m_Preheader->getTerminator());
+  const auto &DL = m_Preheader->getParent()->getParent()->getDataLayout();
+  auto *flagAlloca =
+      new llvm::AllocaInst(flagType, DL.getAllocaAddrSpace(), nullptr,
+                           "sle_flag", m_Preheader->getTerminator());
 
   return flagAlloca;
 }
@@ -360,8 +362,10 @@ llvm::BasicBlock *SimplifyLoopExits::createLatch() {
 llvm::Value *SimplifyLoopExits::createExitSwitch() {
   auto *caseType = llvm::IntegerType::get(m_Preheader->getContext(),
                                           unified_exit_case_type_bits);
-  auto *caseAlloca = new llvm::AllocaInst(caseType, nullptr, "sle_switch",
-                                          m_Preheader->getTerminator());
+  const auto &DL = m_Preheader->getParent()->getParent()->getDataLayout();
+  auto *caseAlloca =
+      new llvm::AllocaInst(caseType, DL.getAllocaAddrSpace(), nullptr,
+                           "sle_switch", m_Preheader->getTerminator());
 
   return caseAlloca;
 }
@@ -520,4 +524,4 @@ void SimplifyLoopExits::migrateLoopMetadata(llvm::Instruction &Src,
   return;
 }
 
-} // namespace icsa end
+} // namespace icsa

@@ -34,7 +34,7 @@
 // using llvm::PassManagerBuilder
 // using llvm::RegisterStandardPasses
 
-#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
 // using char llvm::LoopSimplifyID
 // using char llvm::LowerSwitchID
 
